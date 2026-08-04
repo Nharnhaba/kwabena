@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sika — Expense Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="expense.css" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="theme-color" content="#10112a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+</head>
+<body>
+
+<div id="phone">
+  <div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading Sika…</div>
+  </div>
+
+  <div id="screens">
+
+    <!-- SCREEN 1 — DASHBOARD / HOME -->
+    <section id="screen-dashboard" class="screen">
+      <div class="profile-row">
+        <div>
+          <h1 class="page-title" id="dashGreeting">Sika</h1>
+          <p class="page-sub" id="dashDateLabel" style="margin-bottom:0">This month</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="profile-avatar" id="profileAvatar">•</div>
+        </div>
+      </div>
+      <div style="height:18px"></div>
+
+      <div class="totals-row">
+        <div class="total-card big">
+          <div class="total-label">Total spent this month</div>
+          <div class="total-amount" id="monthTotal">₵0.00</div>
+        </div>
+      </div>
+      <div class="totals-row">
+        <div class="total-card">
+          <div class="total-label">This week</div>
+          <div class="total-amount" id="weekTotal">₵0.00</div>
+        </div>
+        <div class="total-card">
+          <div class="total-label">Expenses logged</div>
+          <div class="total-amount" id="countTotal" style="color:var(--text-primary)">0</div>
+        </div>
+      </div>
+
+      <div class="section-label">Recent expenses</div>
+      <div id="recentList"></div>
+    </section>
+
+    <!-- SCREEN 2 — ADD EXPENSE -->
+    <section id="screen-add" class="screen">
+      <h1 class="page-title">Add expense</h1>
+      <p class="page-sub">Log what you spent</p>
+
+      <div class="amount-input-wrap">
+        <div class="currency">GH₵</div>
+        <input id="amountInput" type="text" inputmode="decimal" placeholder="0.00" />
+      </div>
+
+      <div class="field-label">Category</div>
+      <div class="cat-grid" id="categoryGrid"></div>
+
+      <div class="field-label">Paid with</div>
+      <div class="toggle-row">
+        <div class="toggle-opt momo active" id="toggleMomo" onclick="setPaymentMethod('momo')">Mobile money</div>
+        <div class="toggle-opt cash" id="toggleCash" onclick="setPaymentMethod('cash')">Cash</div>
+      </div>
+
+      <div class="field-label">Note</div>
+      <input id="noteInput" type="text" placeholder="What was this for?" />
+
+      <div class="field-label">Date</div>
+      <input id="dateInput" type="date" />
+
+      <button class="save-btn" id="saveBtn" onclick="saveExpense()">Save expense</button>
+    </section>
+
+    <!-- SCREEN 3 — CATEGORIES -->
+    <section id="screen-categories" class="screen">
+      <h1 class="page-title">Categories</h1>
+      <p class="page-sub">Spending by category, this month</p>
+      <div id="categoryBreakdown"></div>
+    </section>
+
+  </div>
+
+  <button class="fab" id="fabBtn" onclick="showScreen('add')" aria-label="Add expense">+</button>
+
+  <nav id="tabbar">
+    <button class="tab-btn active" data-tab="dashboard" onclick="showScreen('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V9.5Z"/></svg>
+      Home
+    </button>
+    <button class="tab-btn" data-tab="add" onclick="showScreen('add')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+      Add
+    </button>
+    <button class="tab-btn" data-tab="categories" onclick="showScreen('categories')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Categories
+    </button>
+  </nav>
+</div>
+
+<script src="expense.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js");
+  }
+</script>
+</body>
+</html>
