@@ -463,3 +463,17 @@ input:disabled{
   font-size: 14px; padding: 3px;
 }
 .ticket-edit:hover{ color: var(--gold); }
+
+.secondary-btn{
+  width:100%;
+  padding: 12px 0;
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-weight:600;
+  font-size:14px;
+  cursor:pointer;
+}
+.secondary-btn:hover{ border-color: var(--border-strong); }

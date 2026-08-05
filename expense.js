@@ -256,6 +256,69 @@ function logoutUser(){
   showScreen("login");
 }
 
+function exportAccount(){
+  const backup = {
+    app: "sika-backup",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    user: currentUser,
+    expenses: expenses
+  };
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `sika-backup-${currentUser.username}-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+async function importAccountFile(event){
+  const file = event.target.files[0];
+  if (!file) return;
+  const errorEl = document.getElementById("importError");
+  if (errorEl) errorEl.textContent = "";
+
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+
+    if (!data.user || !data.user.username || !Array.isArray(data.expenses)){
+      throw new Error("Invalid backup file");
+    }
+
+    const existing = await getUser(data.user.username).catch(() => null);
+    if (existing){
+      await updateUserInDB(data.user);
+    } else {
+      await createUser(data.user);
+    }
+
+    const db = await openDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("expenses", "readwrite");
+      const store = tx.objectStore("expenses");
+      data.expenses.forEach(e => store.put(e));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+
+    currentUser = data.user;
+    expenses = await loadExpensesForUser(data.user.username);
+    localStorage.setItem(SESSION_KEY, data.user.username);
+    enterApp();
+  } catch (err) {
+    console.error(err);
+    if (errorEl) errorEl.textContent = "Couldn't read that backup file.";
+    else alert("Couldn't read that backup file.");
+  } finally {
+    event.target.value = "";
+  }
+}
+
 function renderProfileScreen(){
   document.getElementById("profileName").value = currentUser.name || "";
   document.getElementById("profilePhone").value = currentUser.phone || "";

@@ -44,6 +44,9 @@
       <div class="reg-error" id="loginError"></div>
 
       <p class="auth-link" onclick="showScreen('register')">New here? <span>Create an account</span></p>
+      <input type="file" id="importFileInputLogin" accept="application/json" style="display:none" onchange="importAccountFile(event)" />
+      <p class="auth-link" onclick="document.getElementById('importFileInputLogin').click()">Have a backup file? <span>Import account</span></p>
+      <div class="reg-error" id="importError"></div>
     </section>
 
     <!-- SCREEN 0b — REGISTER -->
@@ -188,9 +191,13 @@
         <input id="profileNewPassword" type="password" placeholder="Leave blank to keep current password" />
       </div>
 
-      <button class="reg-btn" id="profileSaveBtn" onclick="saveProfileChanges()">Save changes</button>
+     <button class="reg-btn" id="profileSaveBtn" onclick="saveProfileChanges()">Save changes</button>
       <div class="reg-error" id="profileError"></div>
       <div class="reg-error" id="profileSuccess" style="color:var(--green)"></div>
+
+      <div class="section-label">Backup & transfer</div>
+      <p class="page-sub" style="margin-bottom:12px">Download your account to move it to another device.</p>
+      <button class="secondary-btn" onclick="exportAccount()">Export account</button>
     </section>
 
   </div>
