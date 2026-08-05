@@ -1,8 +1,3 @@
-/* ============================================================
-   DESIGN TOKENS
-   Palette: deep indigo night + mobile-money gold + cash green.
-   Signature: expense rows styled like torn trotro / MoMo tickets.
-   ============================================================ */
 :root{
   --bg:            #10112a;
   --bg-soft:       #15173a;
@@ -92,9 +87,6 @@ p.page-sub{
   margin: 0 0 24px;
 }
 
-/* ============================================================
-   LOADING OVERLAY
-   ============================================================ */
 #loadingOverlay{
   position:absolute; inset:0;
   background: var(--bg);
@@ -113,9 +105,50 @@ p.page-sub{
 @keyframes spin{ to{ transform: rotate(360deg); } }
 .loading-text{ font-size:13px; color: var(--text-secondary); }
 
-/* ============================================================
-   BOTTOM NAV & TAB BAR
-   ============================================================ */
+#screen-login, #screen-register{ padding-top: 60px; }
+.brand-mark{
+  width:56px; height:56px;
+  border-radius:16px;
+  background: linear-gradient(150deg, var(--gold), #e0a812);
+  display:flex; align-items:center; justify-content:center;
+  font-family: var(--font-display);
+  font-weight:700;
+  font-size:22px;
+  color:#231b02;
+  margin-bottom: 18px;
+}
+.reg-field{ margin-bottom: 14px; }
+.reg-error{
+  font-size:12px;
+  color: var(--coral);
+  margin-top: 8px;
+  min-height: 14px;
+}
+.reg-btn{
+  width:100%;
+  margin-top:10px;
+  padding: 14px 0;
+  background: var(--gold);
+  color:#231b02;
+  border:none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-weight:600;
+  font-size:15px;
+  cursor:pointer;
+}
+.reg-btn:disabled{ opacity:0.6; cursor:not-allowed; }
+.reg-btn:active:not(:disabled){ transform: scale(0.98); }
+
+.auth-link{
+  text-align:center;
+  font-size:13px;
+  color: var(--text-muted);
+  margin-top: 18px;
+  cursor:pointer;
+}
+.auth-link span{ color: var(--gold); font-weight:600; }
+
 #tabbar{
   position:absolute;
   bottom:0; left:0; right:0;
@@ -160,9 +193,6 @@ p.page-sub{
 }
 .fab.hidden{ display:none; }
 
-/* ============================================================
-   DASHBOARD & RECENT TRANSACTION TICKETS
-   ============================================================ */
 .profile-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
 .profile-avatar{
   width:34px; height:34px; border-radius:50%;
@@ -171,6 +201,16 @@ p.page-sub{
   display:flex; align-items:center; justify-content:center;
   font-family: var(--font-display); font-weight:600; font-size:13px; color: var(--gold);
 }
+.logout-btn{
+  width:34px; height:34px; border-radius:50%;
+  background:none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor:pointer;
+  font-size: 14px;
+  display:flex; align-items:center; justify-content:center;
+}
+.logout-btn:hover{ color: var(--coral); border-color: var(--coral); }
 
 .totals-row{ display:flex; gap:12px; margin-bottom: 22px; }
 .total-card{
@@ -226,13 +266,11 @@ p.page-sub{
   font-size:16px; flex-shrink:0;
   background: var(--bg-soft);
 }
-
 .ticket-body{ flex:1; min-width:0; }
 .ticket-cat{ font-size:14px; font-weight:500; }
 .ticket-note{ font-size:12px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ticket-right{ text-align:right; flex-shrink:0; }
 .ticket-amount{ font-family:var(--font-mono); font-weight:600; font-size:15px; }
-
 .ticket-badge{
   display:inline-block; margin-top:3px;
   font-size:9px; font-weight:600; letter-spacing:.03em; text-transform:uppercase;
@@ -245,11 +283,11 @@ p.page-sub{
   font-size: 16px; padding: 4px; flex-shrink:0;
 }
 .ticket-del:hover{ color: var(--coral); }
-.empty-state{ text-align:center; padding: 30px 10px; color: var(--text-muted); font-size:13px; }
 
-/* ============================================================
-   ADD EXPENSE SCREEN
-   ============================================================ */
+.empty-state{
+  text-align:center; padding: 30px 10px; color: var(--text-muted); font-size:13px;
+}
+
 .amount-input-wrap{
   background: var(--surface);
   border:1px solid var(--border);
@@ -270,6 +308,7 @@ p.page-sub{
   margin-top:4px;
 }
 #amountInput::placeholder{ color: var(--text-muted); }
+
 .field-label{ font-size:12px; color:var(--text-secondary); margin: 16px 0 8px; font-weight:500; }
 
 .cat-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; }
@@ -317,7 +356,7 @@ input[type=text], input[type=date], input[type=tel], input[type=password]{
   outline:none;
 }
 input[type=date]{ color-scheme: dark; }
-input[type=text]:focus, input[type=date]:focus, input[type=tel]:focus, input[type=password]:focus{ border-color: var(--gold) !important; }
+input[type=text]:focus, input[type=date]:focus, input[type=tel]:focus, input[type=password]:focus{ border-color: var(--border-strong); }
 
 .save-btn{
   width:100%;
@@ -335,9 +374,6 @@ input[type=text]:focus, input[type=date]:focus, input[type=tel]:focus, input[typ
 .save-btn:active{ transform: scale(0.98); }
 .save-btn:disabled{ opacity:0.6; cursor:not-allowed; }
 
-/* ============================================================
-   CATEGORIES METRICS
-   ============================================================ */
 .cat-card{
   background: var(--surface);
   border:1px solid var(--border);
@@ -352,10 +388,16 @@ input[type=text]:focus, input[type=date]:focus, input[type=tel]:focus, input[typ
 .cat-bar-track{ height:6px; border-radius:4px; background: var(--bg-soft); overflow:hidden; }
 .cat-bar-fill{ height:100%; background: linear-gradient(90deg, var(--green), var(--gold)); border-radius:4px; }
 
-.hidden { display: none !important; }
-#settingsMessage { text-align: center; font-weight: 500; font-size: 13px; margin-top: 12px; min-height: 18px; }
-.danger-zone-wrapper { margin-top: 40px; border-top: 1px solid var(--border); padding-top: 24px; }
-.danger-zone-title { color: var(--coral); font-family: var(--font-display); font-size: 15px; font-weight:600; margin: 0 0 6px; }
-.danger-zone-text { font-size: 12px; color: var(--text-secondary); margin: 0 0 16px; line-height: 1.5; }
-.delete-account-btn { background: var(--coral) !important; color: #fff !important; }
- 
+.back-link{
+  font-size:13px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  cursor:pointer;
+  display:inline-block;
+}
+.back-link:hover{ color: var(--gold); }
+
+input:disabled{
+  opacity: 0.55;
+  cursor: not-allowed;
+}

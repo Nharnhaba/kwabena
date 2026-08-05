@@ -25,6 +25,56 @@
 
   <div id="screens">
 
+    <!-- SCREEN 0a — LOGIN -->
+    <section id="screen-login" class="screen">
+      <div class="brand-mark">S</div>
+      <h1 class="page-title">Welcome back</h1>
+      <p class="page-sub">Log in to see your expenses.</p>
+
+      <div class="reg-field">
+        <div class="field-label" style="margin-top:0">Username</div>
+        <input id="loginUsername" type="text" placeholder="e.g. kwame" autocapitalize="none" />
+      </div>
+      <div class="reg-field">
+        <div class="field-label">Password</div>
+        <input id="loginPassword" type="password" placeholder="••••••••" />
+      </div>
+
+      <button class="reg-btn" id="loginBtn" onclick="loginUser()">Log in</button>
+      <div class="reg-error" id="loginError"></div>
+
+      <p class="auth-link" onclick="showScreen('register')">New here? <span>Create an account</span></p>
+    </section>
+
+    <!-- SCREEN 0b — REGISTER -->
+    <section id="screen-register" class="screen">
+      <div class="brand-mark">S</div>
+      <h1 class="page-title">Create your account</h1>
+      <p class="page-sub">Your expenses are saved to your own account on this device.</p>
+
+      <div class="reg-field">
+        <div class="field-label" style="margin-top:0">Your name</div>
+        <input id="regName" type="text" placeholder="e.g. Kwame Mensah" />
+      </div>
+      <div class="reg-field">
+        <div class="field-label">Phone number (optional)</div>
+        <input id="regPhone" type="tel" placeholder="024 000 0000" />
+      </div>
+      <div class="reg-field">
+        <div class="field-label">Username</div>
+        <input id="regUsername" type="text" placeholder="e.g. kwame" autocapitalize="none" />
+      </div>
+      <div class="reg-field">
+        <div class="field-label">Password</div>
+        <input id="regPassword" type="password" placeholder="At least 4 characters" />
+      </div>
+
+      <button class="reg-btn" id="regBtn" onclick="registerUser()">Create account</button>
+      <div class="reg-error" id="regError"></div>
+
+      <p class="auth-link" onclick="showScreen('login')">Already have an account? <span>Log in</span></p>
+    </section>
+
     <!-- SCREEN 1 — DASHBOARD / HOME -->
     <section id="screen-dashboard" class="screen">
       <div class="profile-row">
@@ -33,7 +83,8 @@
           <p class="page-sub" id="dashDateLabel" style="margin-bottom:0">This month</p>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
-          <div class="profile-avatar" id="profileAvatar">•</div>
+        <div class="profile-avatar" id="profileAvatar" onclick="showScreen('profile')" style="cursor:pointer">•</div>
+          <button class="logout-btn" onclick="logoutUser()" aria-label="Log out">⏻</button>
         </div>
       </div>
       <div style="height:18px"></div>
@@ -92,6 +143,40 @@
       <h1 class="page-title">Categories</h1>
       <p class="page-sub">Spending by category, this month</p>
       <div id="categoryBreakdown"></div>
+    </section>
+
+    <!-- SCREEN 4 — EDIT PROFILE -->
+    <section id="screen-profile" class="screen">
+      <p class="back-link" onclick="showScreen('dashboard')">‹ Back</p>
+      <h1 class="page-title">Edit profile</h1>
+      <p class="page-sub">Update your details</p>
+
+      <div class="reg-field">
+        <div class="field-label" style="margin-top:0">Your name</div>
+        <input id="profileName" type="text" placeholder="e.g. Kwame Mensah" />
+      </div>
+      <div class="reg-field">
+        <div class="field-label">Phone number</div>
+        <input id="profilePhone" type="tel" placeholder="024 000 0000" />
+      </div>
+      <div class="reg-field">
+        <div class="field-label">Username</div>
+        <input id="profileUsername" type="text" disabled />
+      </div>
+
+      <div class="section-label">Change password</div>
+      <div class="reg-field">
+        <div class="field-label" style="margin-top:0">Current password</div>
+        <input id="profileCurrentPassword" type="password" placeholder="Leave blank to keep current password" />
+      </div>
+      <div class="reg-field">
+        <div class="field-label">New password</div>
+        <input id="profileNewPassword" type="password" placeholder="Leave blank to keep current password" />
+      </div>
+
+      <button class="reg-btn" id="profileSaveBtn" onclick="saveProfileChanges()">Save changes</button>
+      <div class="reg-error" id="profileError"></div>
+      <div class="reg-error" id="profileSuccess" style="color:var(--green)"></div>
     </section>
 
   </div>
