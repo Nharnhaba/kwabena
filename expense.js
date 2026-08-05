@@ -11,7 +11,9 @@ let expenses = [];
 let currentUser = null;
 let selectedCategoryId = null;
 let selectedMethod = "momo";
+let editingExpenseId = null;
 let dateFilterValue = null;
+let quickFilter = null;
 
 const DB_NAME = "sika-db";
 const DB_VERSION = 2;
@@ -123,6 +125,21 @@ async function deleteExpenseFromDB(id){
   }
 }
 
+async function updateExpenseInDB(expense){
+  try {
+    const db = await openDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("expenses", "readwrite");
+      tx.objectStore("expenses").put(expense);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.error("Failed to update expense:", err);
+    alert("Couldn't save changes. Try again.");
+  }
+}
+
 function formatMoney(n){
   return "₵" + n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -137,6 +154,11 @@ function isThisWeek(dateStr){
   const d = new Date(dateStr), now = new Date();
   const diffDays = (now - d) / (1000*60*60*24);
   return diffDays >= 0 && diffDays < 7;
+}
+function isLastWeek(dateStr){
+  const d = new Date(dateStr), now = new Date();
+  const diffDays = (now - d) / (1000*60*60*24);
+  return diffDays >= 7 && diffDays < 14;
 }
 function formatDateLabel(dateStr){
   const d = new Date(dateStr), now = new Date();
@@ -316,15 +338,22 @@ function renderDashboard(){
   let listSource = [...expenses].sort((a,b) => new Date(b.date) - new Date(a.date));
   if (dateFilterValue){
     listSource = listSource.filter(e => e.date === dateFilterValue);
+  } else if (quickFilter === "week"){
+    listSource = listSource.filter(e => isThisWeek(e.date));
+  } else if (quickFilter === "lastweek"){
+    listSource = listSource.filter(e => isLastWeek(e.date));
+  } else if (quickFilter === "month"){
+    listSource = listSource.filter(e => isThisMonth(e.date));
   } else {
     listSource = listSource.slice(0, 8);
   }
 
   const list = document.getElementById("recentList");
+  const filterActive = dateFilterValue || quickFilter;
 
   if (listSource.length === 0){
-    list.innerHTML = dateFilterValue
-      ? '<div class="empty-state">No expenses on that date.</div>'
+    list.innerHTML = filterActive
+      ? '<div class="empty-state">No expenses in that range.</div>'
       : '<div class="empty-state">No expenses yet. Tap + to add your first one.</div>';
     return;
   }
@@ -344,9 +373,74 @@ function renderDashboard(){
           <div class="ticket-amount">${formatMoney(e.amount)}</div>
           <span class="ticket-badge ${badgeClass}">${badgeLabel}</span>
         </div>
-        <button class="ticket-del" onclick="deleteExpense(${e.id})" aria-label="Delete">✕</button>
+        <div class="ticket-actions">
+          <button class="ticket-edit" onclick="editExpense(${e.id})" aria-label="Edit">✎</button>
+          <button class="ticket-del" onclick="deleteExpense(${e.id})" aria-label="Delete">✕</button>
+        </div>
       </div>`;
   }).join("");
+}
+
+function applyDateFilter(){
+  const value = document.getElementById("dateFilter").value;
+  dateFilterValue = value || null;
+  quickFilter = null;
+  document.querySelectorAll(".chip-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("clearFilterBtn").classList.toggle("hidden", !dateFilterValue);
+  renderDashboard();
+}
+
+function clearDateFilter(){
+  dateFilterValue = null;
+  quickFilter = null;
+  document.getElementById("dateFilter").value = "";
+  document.getElementById("clearFilterBtn").classList.add("hidden");
+  document.querySelectorAll(".chip-btn").forEach(b => b.classList.remove("active"));
+  renderDashboard();
+}
+
+function setQuickFilter(mode){
+  quickFilter = (quickFilter === mode) ? null : mode;
+  dateFilterValue = null;
+  document.getElementById("dateFilter").value = "";
+  document.getElementById("clearFilterBtn").classList.add("hidden");
+  document.querySelectorAll(".chip-btn").forEach(b => b.classList.remove("active"));
+  const chipIds = { week: "chipWeek", lastweek: "chipLastWeek", month: "chipMonth" };
+  if (quickFilter && chipIds[quickFilter]){
+    document.getElementById(chipIds[quickFilter]).classList.add("active");
+  }
+  renderDashboard();
+}
+
+function exportCSV(){
+  if (expenses.length === 0){
+    alert("No expenses to export yet.");
+    return;
+  }
+  const header = ["Date", "Category", "Amount (GHS)", "Payment method", "Note"];
+  const rows = [...expenses]
+    .sort((a,b) => new Date(a.date) - new Date(b.date))
+    .map(e => [
+      e.date,
+      getCategory(e.categoryId).name,
+      e.amount.toFixed(2),
+      e.method === "momo" ? "Mobile money" : "Cash",
+      (e.note || "").replace(/"/g, '""')
+    ]);
+
+  const csv = [header, ...rows]
+    .map(row => row.map(field => `"${field}"`).join(","))
+    .join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `sika-expenses-${currentUser.username}-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 function applyDateFilter(){
@@ -393,9 +487,34 @@ function resetAddForm(){
   document.getElementById("dateInput").value = new Date().toISOString().slice(0,10);
   selectedCategoryId = null;
   selectedMethod = "momo";
+  editingExpenseId = null;
+  document.querySelector("#screen-add .page-title").textContent = "Add expense";
+  document.getElementById("saveBtn").textContent = "Save expense";
   renderCategoryGrid();
   setPaymentMethod("momo");
 }
+
+function editExpense(id){
+  const exp = expenses.find(e => e.id === id);
+  if (!exp) return;
+  editingExpenseId = id;
+  document.getElementById("amountInput").value = exp.amount;
+  document.getElementById("noteInput").value = exp.note || "";
+  document.getElementById("dateInput").value = exp.date;
+  selectedCategoryId = exp.categoryId;
+  selectedMethod = exp.method;
+  renderCategoryGrid();
+  setPaymentMethod(exp.method);
+  document.querySelector("#screen-add .page-title").textContent = "Edit expense";
+  document.getElementById("saveBtn").textContent = "Save changes";
+  showScreen("add");
+}
+
+function startNewExpense(){
+  editingExpenseId = null;
+  showScreen("add");
+}
+
 async function saveExpense(){
   const amount = parseFloat(document.getElementById("amountInput").value);
   const note = document.getElementById("noteInput").value.trim();
@@ -405,23 +524,30 @@ async function saveExpense(){
   if (!amount || amount <= 0){ alert("Enter an amount."); return; }
   if (!selectedCategoryId){ alert("Pick a category."); return; }
 
+  const wasEditing = !!editingExpenseId;
   btn.disabled = true;
   btn.textContent = "Saving…";
 
-  const newExpense = {
-    id: Date.now(),
-    username: currentUser.username,
-    amount,
-    categoryId: selectedCategoryId,
-    method: selectedMethod,
-    note,
-    date,
-  };
-  expenses.push(newExpense);
-  await addExpenseToDB(newExpense);
+  if (wasEditing){
+    const idx = expenses.findIndex(e => e.id === editingExpenseId);
+    const updatedExpense = { ...expenses[idx], amount, categoryId: selectedCategoryId, method: selectedMethod, note, date };
+    expenses[idx] = updatedExpense;
+    await updateExpenseInDB(updatedExpense);
+  } else {
+    const newExpense = {
+      id: Date.now(),
+      username: currentUser.username,
+      amount,
+      categoryId: selectedCategoryId,
+      method: selectedMethod,
+      note,
+      date,
+    };
+    expenses.push(newExpense);
+    await addExpenseToDB(newExpense);
+  }
 
   btn.disabled = false;
-  btn.textContent = "Save expense";
 
   resetAddForm();
   renderDashboard();
@@ -457,6 +583,8 @@ function showScreen(name){
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById("screen-" + name).classList.add("active");
 
+  if (name !== "add") editingExpenseId = null;
+
   const chrome = document.getElementById("tabbar");
   const fab = document.getElementById("fabBtn");
   if (name === "login" || name === "register"){
@@ -471,7 +599,7 @@ function showScreen(name){
     if (name === "profile") renderProfileScreen();
   }
 
-  if (name === "add") resetAddForm();
+  if (name === "add" && !editingExpenseId) resetAddForm();
   if (name === "categories") renderCategories();
 }
 

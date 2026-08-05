@@ -106,7 +106,17 @@
         </div>
       </div>
 
-     <div class="section-label">Recent expenses</div>
+      <div class="section-row">
+        <div class="section-label" style="margin:0">Recent expenses</div>
+        <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+      </div>
+
+      <div class="filter-chips">
+        <button class="chip-btn" id="chipWeek" onclick="setQuickFilter('week')">This week</button>
+        <button class="chip-btn" id="chipLastWeek" onclick="setQuickFilter('lastweek')">Last week</button>
+        <button class="chip-btn" id="chipMonth" onclick="setQuickFilter('month')">This month</button>
+      </div>
+
       <div class="search-row">
         <input id="dateFilter" type="date" onchange="applyDateFilter()" />
         <button class="clear-filter-btn hidden" id="clearFilterBtn" onclick="clearDateFilter()">✕</button>
@@ -185,7 +195,7 @@
 
   </div>
 
-  <button class="fab" id="fabBtn" onclick="showScreen('add')" aria-label="Add expense">+</button>
+  <button class="fab" id="fabBtn" onclick="startNewExpense()" aria-label="Add expense">+</button>
 
   <nav id="tabbar">
     <button class="tab-btn active" data-tab="dashboard" onclick="showScreen('dashboard')">

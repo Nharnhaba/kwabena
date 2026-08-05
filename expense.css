@@ -421,3 +421,45 @@ input:disabled{
 }
 .clear-filter-btn:hover{ color: var(--coral); border-color: var(--coral); }
 .clear-filter-btn.hidden{ display:none; }
+
+.section-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin: 22px 0 12px;
+}
+.export-btn{
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight:600;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  cursor:pointer;
+}
+.export-btn:hover{ color: var(--gold); border-color: var(--gold); }
+
+.filter-chips{
+  display:flex;
+  gap:8px;
+  margin-bottom: 10px;
+}
+.chip-btn{
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight:500;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor:pointer;
+}
+.chip-btn.active{ background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+
+.ticket-actions{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
+.ticket-edit{
+  background:none; border:none; color: var(--text-muted); cursor:pointer;
+  font-size: 14px; padding: 3px;
+}
+.ticket-edit:hover{ color: var(--gold); }
