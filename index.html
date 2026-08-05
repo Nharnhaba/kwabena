@@ -35,11 +35,14 @@
         <div class="field-label" style="margin-top:0">Username</div>
         <input id="loginUsername" type="text" placeholder="e.g. kwame" autocapitalize="none" />
       </div>
-      <div class="reg-field">
+     <div class="reg-field">
         <div class="field-label">Password</div>
-        <input id="loginPassword" type="password" placeholder="••••••••" />
+        <div class="password-wrap">
+          <input id="loginPassword" type="password" placeholder="••••••••" />
+          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('loginPassword', this)">👁</button>
+        </div>
       </div>
-
+      
       <button class="reg-btn" id="loginBtn" onclick="loginUser()">Log in</button>
       <div class="reg-error" id="loginError"></div>
 
@@ -69,7 +72,10 @@
       </div>
       <div class="reg-field">
         <div class="field-label">Password</div>
-        <input id="regPassword" type="password" placeholder="At least 4 characters" />
+        <div class="password-wrap">
+          <input id="regPassword" type="password" placeholder="At least 4 characters" />
+          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('regPassword', this)">👁</button>
+        </div>
       </div>
 
       <button class="reg-btn" id="regBtn" onclick="registerUser()">Create account</button>
@@ -87,7 +93,7 @@
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
         <div class="profile-avatar" id="profileAvatar" onclick="showScreen('profile')" style="cursor:pointer">•</div>
-          <button class="logout-btn" onclick="logoutUser()" aria-label="Log out">⏻</button>
+         <button class="logout-btn" onclick="confirmLogout()" aria-label="Log out">⏻</button>
         </div>
       </div>
       <div style="height:18px"></div>
@@ -184,11 +190,17 @@
       <div class="section-label">Change password</div>
       <div class="reg-field">
         <div class="field-label" style="margin-top:0">Current password</div>
-        <input id="profileCurrentPassword" type="password" placeholder="Leave blank to keep current password" />
+        <div class="password-wrap">
+          <input id="profileCurrentPassword" type="password" placeholder="Leave blank to keep current password" />
+          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('profileCurrentPassword', this)">👁</button>
+        </div>
       </div>
       <div class="reg-field">
         <div class="field-label">New password</div>
-        <input id="profileNewPassword" type="password" placeholder="Leave blank to keep current password" />
+        <div class="password-wrap">
+          <input id="profileNewPassword" type="password" placeholder="Leave blank to keep current password" />
+          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('profileNewPassword', this)">👁</button>
+        </div>
       </div>
 
      <button class="reg-btn" id="profileSaveBtn" onclick="saveProfileChanges()">Save changes</button>
@@ -217,9 +229,18 @@
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
       Categories
     </button>
-  </nav>
-</div>
+</nav>
 
+  <div id="confirmModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <p class="modal-message" id="confirmMessage">Are you sure?</p>
+      <div class="modal-actions">
+        <button class="modal-btn cancel" id="confirmCancelBtn">No</button>
+        <button class="modal-btn confirm" id="confirmYesBtn">Yes</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script src="expense.js"></script>
 <script>
   if ("serviceWorker" in navigator) {

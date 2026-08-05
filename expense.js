@@ -253,7 +253,53 @@ function logoutUser(){
   expenses = [];
   document.getElementById("loginUsername").value = "";
   document.getElementById("loginPassword").value = "";
+  resetRegisterForm();
   showScreen("login");
+}
+
+let confirmCallback = null;
+
+function showConfirm(message, onConfirm){
+  document.getElementById("confirmMessage").textContent = message;
+  confirmCallback = onConfirm;
+  document.getElementById("confirmModal").classList.remove("hidden");
+}
+
+function hideConfirm(){
+  document.getElementById("confirmModal").classList.add("hidden");
+  confirmCallback = null;
+}
+
+document.getElementById("confirmCancelBtn").addEventListener("click", hideConfirm);
+document.getElementById("confirmYesBtn").addEventListener("click", () => {
+  const cb = confirmCallback;
+  hideConfirm();
+  if (cb) cb();
+});
+
+function togglePasswordVisibility(inputId, btn){
+  const input = document.getElementById(inputId);
+  const isHidden = input.type === "password";
+  input.type = isHidden ? "text" : "password";
+  btn.textContent = isHidden ? "🙈" : "👁";
+}
+
+function confirmLogout(){
+  showConfirm("Log out of your account?", () => {
+    logoutUser();
+  });
+}
+
+function usernameInitials(username){
+  return (username || "").slice(0,2).toUpperCase() || "•";
+}
+
+function resetRegisterForm(){
+  document.getElementById("regName").value = "";
+  document.getElementById("regPhone").value = "";
+  document.getElementById("regUsername").value = "";
+  document.getElementById("regPassword").value = "";
+  document.getElementById("regError").textContent = "";
 }
 
 function exportAccount(){
@@ -384,8 +430,8 @@ async function saveProfileChanges(){
   }
 }
 function renderDashboard(){
-  document.getElementById("dashGreeting").textContent = currentUser ? `Hi, ${currentUser.name.split(" ")[0]}` : "Sika";
-  document.getElementById("profileAvatar").textContent = initials(currentUser?.name);
+  document.getElementById("dashGreeting").textContent = currentUser ? `Hi, ${currentUser.username}` : "Sika";
+  document.getElementById("profileAvatar").textContent = usernameInitials(currentUser?.username);
 
   const monthExpenses = expenses.filter(e => isThisMonth(e.date));
   const weekExpenses = expenses.filter(e => isThisWeek(e.date));
@@ -520,13 +566,14 @@ function clearDateFilter(){
   renderDashboard();
 }
 
-async function deleteExpense(id){
-  expenses = expenses.filter(e => e.id !== id);
-  await deleteExpenseFromDB(id);
-  renderDashboard();
-  renderCategories();
+function deleteExpense(id){
+  showConfirm("Delete this expense?", async () => {
+    expenses = expenses.filter(e => e.id !== id);
+    await deleteExpenseFromDB(id);
+    renderDashboard();
+    renderCategories();
+  });
 }
-
 function renderCategoryGrid(){
   const grid = document.getElementById("categoryGrid");
   grid.innerHTML = CATEGORIES.map(c => `
@@ -660,6 +707,7 @@ function showScreen(name){
     const tabBtn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
     if (tabBtn) tabBtn.classList.add("active");
     if (name === "profile") renderProfileScreen();
+    if (name === "register") resetRegisterForm();
   }
 
   if (name === "add" && !editingExpenseId) resetAddForm();
