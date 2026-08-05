@@ -99,8 +99,18 @@
       <div style="height:18px"></div>
 
       <div class="totals-row">
-        <div class="total-card big">
-          <div class="total-label">Total spent this month</div>
+        <div class="total-card big balance-card">
+          <div class="total-label">Balance this month</div>
+          <div class="total-amount" id="balanceTotal">₵0.00</div>
+        </div>
+      </div>
+      <div class="totals-row">
+        <div class="total-card">
+          <div class="total-label">Income this month</div>
+          <div class="total-amount" id="incomeTotal" style="color:var(--green)">₵0.00</div>
+        </div>
+        <div class="total-card">
+          <div class="total-label">Spent this month</div>
           <div class="total-amount" id="monthTotal">₵0.00</div>
         </div>
       </div>
@@ -110,7 +120,7 @@
           <div class="total-amount" id="weekTotal">₵0.00</div>
         </div>
         <div class="total-card">
-          <div class="total-label">Expenses logged</div>
+          <div class="total-label">Entries logged</div>
           <div class="total-amount" id="countTotal" style="color:var(--text-primary)">0</div>
         </div>
       </div>
@@ -144,7 +154,12 @@
         <input id="amountInput" type="text" inputmode="decimal" placeholder="0.00" />
       </div>
 
-      <div class="field-label">Category</div>
+      <div class="toggle-row" style="margin-bottom:16px">
+        <div class="toggle-opt type-expense active" id="toggleTypeExpense" onclick="setEntryType('expense')">Expense</div>
+        <div class="toggle-opt type-income" id="toggleTypeIncome" onclick="setEntryType('income')">Income</div>
+      </div>
+
+      <div class="field-label" id="categoryFieldLabel">Category</div>
       <div class="cat-grid" id="categoryGrid"></div>
 
       <div class="field-label">Paid with</div>
@@ -165,8 +180,13 @@
     <!-- SCREEN 3 — CATEGORIES -->
     <section id="screen-categories" class="screen">
       <h1 class="page-title">Categories</h1>
-      <p class="page-sub">Spending by category, this month</p>
+      <p class="page-sub">Spending and income, this month</p>
+
+      <div class="section-label">Spending by category</div>
       <div id="categoryBreakdown"></div>
+
+      <div class="section-label">Income by source</div>
+      <div id="incomeBreakdown"></div>
     </section>
 
     <!-- SCREEN 4 — EDIT PROFILE -->
@@ -231,15 +251,22 @@
         <input id="summaryYearInput" type="number" min="2000" max="2100" placeholder="e.g. 2026" onchange="renderSummary()" />
       </div>
 
-      <div class="totals-row">
-        <div class="total-card big">
-          <div class="total-label" id="summaryTotalLabel">Total spent</div>
+     <div class="totals-row">
+        <div class="total-card">
+          <div class="total-label" id="summaryIncomeLabel">Income</div>
+          <div class="total-amount" id="summaryIncome" style="color:var(--green)">₵0.00</div>
+        </div>
+        <div class="total-card">
+          <div class="total-label" id="summaryTotalLabel">Spent</div>
           <div class="total-amount" id="summaryTotal">₵0.00</div>
         </div>
       </div>
 
-      <div class="section-label">By category</div>
+      <div class="section-label">Spending by category</div>
       <div id="summaryBreakdown"></div>
+
+      <div class="section-label">Income by source</div>
+      <div id="summaryIncomeBreakdown"></div>
     </section>
 
   </div>

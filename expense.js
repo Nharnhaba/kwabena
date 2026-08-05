@@ -6,6 +6,13 @@ const CATEGORIES = [
   { id: "hustle",    name: "Hustle",          emoji: "💼" },
   { id: "cars",      name: "Cars",            emoji: "🚗" },
 ];
+const INCOME_CATEGORIES = [
+  { id: "salary",   name: "Salary",        emoji: "💰" },
+  { id: "business", name: "Business",      emoji: "🧾" },
+  { id: "momo_in",  name: "Momo received", emoji: "📲" },
+  { id: "gift",     name: "Gift",          emoji: "🎁" },
+  { id: "other_in", name: "Other income",  emoji: "➕" },
+];
 
 let expenses = [];
 let currentUser = null;
@@ -15,6 +22,7 @@ let editingExpenseId = null;
 let dateFilterValue = null;
 let quickFilter = null;
 let summaryMode = "month";
+let selectedType = "expense";
 
 const DB_NAME = "sika-db";
 const DB_VERSION = 2;
@@ -146,6 +154,12 @@ function formatMoney(n){
 }
 function getCategory(id){
   return CATEGORIES.find(c => c.id === id) || { name: "Other", emoji: "•" };
+}
+function getCategoryList(type){
+  return type === "income" ? INCOME_CATEGORIES : CATEGORIES;
+}
+function getCategoryAny(id, type){
+  return getCategoryList(type).find(c => c.id === id) || { name: "Other", emoji: "•" };
 }
 function isThisMonth(dateStr){
   const d = new Date(dateStr), now = new Date();
@@ -434,14 +448,18 @@ function renderDashboard(){
   document.getElementById("dashGreeting").textContent = currentUser ? `Hi, ${currentUser.username}` : "Sika";
   document.getElementById("profileAvatar").textContent = usernameInitials(currentUser?.username);
 
-  const monthExpenses = expenses.filter(e => isThisMonth(e.date));
-  const weekExpenses = expenses.filter(e => isThisWeek(e.date));
-  const monthTotal = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
-  const weekTotal = weekExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const monthEntries = expenses.filter(e => isThisMonth(e.date));
+  const weekEntries = expenses.filter(e => isThisWeek(e.date));
 
-  document.getElementById("monthTotal").textContent = formatMoney(monthTotal);
-  document.getElementById("weekTotal").textContent = formatMoney(weekTotal);
-  document.getElementById("countTotal").textContent = monthExpenses.length;
+  const monthExpenseTotal = monthEntries.filter(e => (e.type || "expense") === "expense").reduce((sum, e) => sum + e.amount, 0);
+  const monthIncomeTotal = monthEntries.filter(e => e.type === "income").reduce((sum, e) => sum + e.amount, 0);
+  const weekExpenseTotal = weekEntries.filter(e => (e.type || "expense") === "expense").reduce((sum, e) => sum + e.amount, 0);
+
+  document.getElementById("monthTotal").textContent = formatMoney(monthExpenseTotal);
+  document.getElementById("incomeTotal").textContent = formatMoney(monthIncomeTotal);
+  document.getElementById("balanceTotal").textContent = formatMoney(monthIncomeTotal - monthExpenseTotal);
+  document.getElementById("weekTotal").textContent = formatMoney(weekExpenseTotal);
+  document.getElementById("countTotal").textContent = monthEntries.length;
   document.getElementById("dashDateLabel").textContent =
     new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
@@ -463,15 +481,18 @@ function renderDashboard(){
 
   if (listSource.length === 0){
     list.innerHTML = filterActive
-      ? '<div class="empty-state">No expenses in that range.</div>'
-      : '<div class="empty-state">No expenses yet. Tap + to add your first one.</div>';
+      ? '<div class="empty-state">No entries in that range.</div>'
+      : '<div class="empty-state">No entries yet. Tap + to add your first one.</div>';
     return;
   }
 
   list.innerHTML = listSource.map(e => {
-    const cat = getCategory(e.categoryId);
+    const type = e.type || "expense";
+    const cat = getCategoryAny(e.categoryId, type);
     const badgeClass = e.method === "momo" ? "badge-momo" : "badge-cash";
     const badgeLabel = e.method === "momo" ? "Mobile money" : "Cash";
+    const sign = type === "income" ? "+" : "−";
+    const amountClass = type === "income" ? "ticket-amount income" : "ticket-amount";
     return `
       <div class="ticket">
         <div class="ticket-icon">${cat.emoji}</div>
@@ -480,7 +501,7 @@ function renderDashboard(){
           <div class="ticket-note">${e.note || formatDateLabel(e.date)}</div>
         </div>
         <div class="ticket-right">
-          <div class="ticket-amount">${formatMoney(e.amount)}</div>
+          <div class="${amountClass}">${sign}${formatMoney(e.amount)}</div>
           <span class="ticket-badge ${badgeClass}">${badgeLabel}</span>
         </div>
         <div class="ticket-actions">
@@ -524,29 +545,30 @@ function setQuickFilter(mode){
 
 function exportCSV(){
   if (expenses.length === 0){
-    alert("No expenses to export yet.");
+    alert("No entries to export yet.");
     return;
   }
-  const header = ["Date", "Category", "Amount (GHS)", "Payment method", "Note"];
+  const header = ["Date", "Type", "Category", "Amount (GHS)", "Payment method", "Note"];
   const rows = [...expenses]
     .sort((a,b) => new Date(a.date) - new Date(b.date))
-    .map(e => [
-      e.date,
-      getCategory(e.categoryId).name,
-      e.amount.toFixed(2),
-      e.method === "momo" ? "Mobile money" : "Cash",
-      (e.note || "").replace(/"/g, '""')
-    ]);
+    .map(e => {
+      const type = e.type || "expense";
+      return [
+        e.date,
+        type === "income" ? "Income" : "Expense",
+        getCategoryAny(e.categoryId, type).name,
+        e.amount.toFixed(2),
+        e.method === "momo" ? "Mobile money" : "Cash",
+        (e.note || "").replace(/"/g, '""')
+      ];
+    });
 
-  const csv = [header, ...rows]
-    .map(row => row.map(field => `"${field}"`).join(","))
-    .join("\n");
-
+  const csv = [header, ...rows].map(row => row.map(f => `"${f}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `sika-expenses-${currentUser.username}-${new Date().toISOString().slice(0,10)}.csv`;
+  link.download = `sika-transactions-${currentUser.username}-${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -577,7 +599,8 @@ function deleteExpense(id){
 }
 function renderCategoryGrid(){
   const grid = document.getElementById("categoryGrid");
-  grid.innerHTML = CATEGORIES.map(c => `
+  const list = getCategoryList(selectedType);
+  grid.innerHTML = list.map(c => `
     <div class="cat-chip ${c.id === selectedCategoryId ? 'selected' : ''}" onclick="selectCategory('${c.id}')">
       <span class="cat-emoji">${c.emoji}</span>${c.name}
     </div>
@@ -592,15 +615,27 @@ function setPaymentMethod(method){
   document.getElementById("toggleMomo").classList.toggle("active", method === "momo");
   document.getElementById("toggleCash").classList.toggle("active", method === "cash");
 }
+function setEntryType(type){
+  selectedType = type;
+  document.getElementById("toggleTypeExpense").classList.toggle("active", type === "expense");
+  document.getElementById("toggleTypeIncome").classList.toggle("active", type === "income");
+  document.getElementById("categoryFieldLabel").textContent = type === "income" ? "Source" : "Category";
+  selectedCategoryId = null;
+  renderCategoryGrid();
+}
 function resetAddForm(){
   document.getElementById("amountInput").value = "";
   document.getElementById("noteInput").value = "";
   document.getElementById("dateInput").value = new Date().toISOString().slice(0,10);
   selectedCategoryId = null;
   selectedMethod = "momo";
+  selectedType = "expense";
   editingExpenseId = null;
   document.querySelector("#screen-add .page-title").textContent = "Add expense";
   document.getElementById("saveBtn").textContent = "Save expense";
+  document.getElementById("categoryFieldLabel").textContent = "Category";
+  document.getElementById("toggleTypeExpense").classList.add("active");
+  document.getElementById("toggleTypeIncome").classList.remove("active");
   renderCategoryGrid();
   setPaymentMethod("momo");
 }
@@ -609,14 +644,18 @@ function editExpense(id){
   const exp = expenses.find(e => e.id === id);
   if (!exp) return;
   editingExpenseId = id;
+  selectedType = exp.type || "expense";
   document.getElementById("amountInput").value = exp.amount;
   document.getElementById("noteInput").value = exp.note || "";
   document.getElementById("dateInput").value = exp.date;
   selectedCategoryId = exp.categoryId;
   selectedMethod = exp.method;
+  document.getElementById("toggleTypeExpense").classList.toggle("active", selectedType === "expense");
+  document.getElementById("toggleTypeIncome").classList.toggle("active", selectedType === "income");
+  document.getElementById("categoryFieldLabel").textContent = selectedType === "income" ? "Source" : "Category";
   renderCategoryGrid();
   setPaymentMethod(exp.method);
-  document.querySelector("#screen-add .page-title").textContent = "Edit expense";
+  document.querySelector("#screen-add .page-title").textContent = "Edit entry";
   document.getElementById("saveBtn").textContent = "Save changes";
   showScreen("add");
 }
@@ -633,7 +672,7 @@ async function saveExpense(){
   const btn = document.getElementById("saveBtn");
 
   if (!amount || amount <= 0){ alert("Enter an amount."); return; }
-  if (!selectedCategoryId){ alert("Pick a category."); return; }
+  if (!selectedCategoryId){ alert(selectedType === "income" ? "Pick a source." : "Pick a category."); return; }
 
   const wasEditing = !!editingExpenseId;
   btn.disabled = true;
@@ -641,7 +680,7 @@ async function saveExpense(){
 
   if (wasEditing){
     const idx = expenses.findIndex(e => e.id === editingExpenseId);
-    const updatedExpense = { ...expenses[idx], amount, categoryId: selectedCategoryId, method: selectedMethod, note, date };
+    const updatedExpense = { ...expenses[idx], amount, categoryId: selectedCategoryId, method: selectedMethod, note, date, type: selectedType };
     expenses[idx] = updatedExpense;
     await updateExpenseInDB(updatedExpense);
   } else {
@@ -653,13 +692,13 @@ async function saveExpense(){
       method: selectedMethod,
       note,
       date,
+      type: selectedType,
     };
     expenses.push(newExpense);
     await addExpenseToDB(newExpense);
   }
 
   btn.disabled = false;
-
   resetAddForm();
   renderDashboard();
   renderCategories();
@@ -667,15 +706,24 @@ async function saveExpense(){
 }
 
 function renderCategories(){
-  const monthExpenses = expenses.filter(e => isThisMonth(e.date));
+  const monthEntries = expenses.filter(e => isThisMonth(e.date));
+  renderBreakdownInto("categoryBreakdown", monthEntries.filter(e => (e.type || "expense") === "expense"), CATEGORIES);
+  renderBreakdownInto("incomeBreakdown", monthEntries.filter(e => e.type === "income"), INCOME_CATEGORIES);
+}
+
+function renderBreakdownInto(containerId, entries, categoryList){
   const totals = {};
-  CATEGORIES.forEach(c => totals[c.id] = 0);
-  monthExpenses.forEach(e => { totals[e.categoryId] = (totals[e.categoryId] || 0) + e.amount; });
-
+  categoryList.forEach(c => totals[c.id] = 0);
+  entries.forEach(e => { totals[e.categoryId] = (totals[e.categoryId] || 0) + e.amount; });
   const maxSpend = Math.max(1, ...Object.values(totals));
-  const container = document.getElementById("categoryBreakdown");
+  const container = document.getElementById(containerId);
 
-  container.innerHTML = CATEGORIES.map(c => {
+  if (entries.length === 0){
+    container.innerHTML = '<div class="empty-state">Nothing here yet.</div>';
+    return;
+  }
+
+  container.innerHTML = categoryList.map(c => {
     const amount = totals[c.id] || 0;
     const pct = Math.round((amount / maxSpend) * 100);
     return `
@@ -724,34 +772,16 @@ function renderSummary(){
     label = String(year);
   }
 
-  const total = filtered.reduce((sum, e) => sum + e.amount, 0);
-  document.getElementById("summaryTotalLabel").textContent = `Total spent — ${label}`;
-  document.getElementById("summaryTotal").textContent = formatMoney(total);
+  const expenseEntries = filtered.filter(e => (e.type || "expense") === "expense");
+  const incomeEntries = filtered.filter(e => e.type === "income");
 
-  const totals = {};
-  CATEGORIES.forEach(c => totals[c.id] = 0);
-  filtered.forEach(e => { totals[e.categoryId] = (totals[e.categoryId] || 0) + e.amount; });
-  const maxSpend = Math.max(1, ...Object.values(totals));
-  const container = document.getElementById("summaryBreakdown");
+  document.getElementById("summaryTotalLabel").textContent = `Spent — ${label}`;
+  document.getElementById("summaryTotal").textContent = formatMoney(expenseEntries.reduce((sum, e) => sum + e.amount, 0));
+  document.getElementById("summaryIncomeLabel").textContent = `Income — ${label}`;
+  document.getElementById("summaryIncome").textContent = formatMoney(incomeEntries.reduce((sum, e) => sum + e.amount, 0));
 
-  if (filtered.length === 0){
-    container.innerHTML = '<div class="empty-state">No expenses in this period.</div>';
-    return;
-  }
-
-  container.innerHTML = CATEGORIES.map(c => {
-    const amount = totals[c.id] || 0;
-    const pct = Math.round((amount / maxSpend) * 100);
-    return `
-      <div class="cat-card">
-        <div class="cat-card-top">
-          <span class="cat-card-emoji">${c.emoji}</span>
-          <span class="cat-card-name">${c.name}</span>
-          <span class="cat-card-amount">${formatMoney(amount)}</span>
-        </div>
-        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${pct}%"></div></div>
-      </div>`;
-  }).join("");
+  renderBreakdownInto("summaryBreakdown", expenseEntries, CATEGORIES);
+  renderBreakdownInto("summaryIncomeBreakdown", incomeEntries, INCOME_CATEGORIES);
 }
 
 function showScreen(name){
