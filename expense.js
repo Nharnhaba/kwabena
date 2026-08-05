@@ -14,6 +14,7 @@ let selectedMethod = "momo";
 let editingExpenseId = null;
 let dateFilterValue = null;
 let quickFilter = null;
+let summaryMode = "month";
 
 const DB_NAME = "sika-db";
 const DB_VERSION = 2;
@@ -689,6 +690,70 @@ function renderCategories(){
   }).join("");
 }
 
+function setSummaryMode(mode){
+  summaryMode = mode;
+  document.getElementById("summaryModeMonth").classList.toggle("active", mode === "month");
+  document.getElementById("summaryModeYear").classList.toggle("active", mode === "year");
+  document.getElementById("summaryMonthField").classList.toggle("hidden", mode !== "month");
+  document.getElementById("summaryYearField").classList.toggle("hidden", mode !== "year");
+  renderSummary();
+}
+
+function renderSummaryScreen(){
+  const monthInput = document.getElementById("summaryMonthInput");
+  if (!monthInput.value) monthInput.value = new Date().toISOString().slice(0,7);
+  const yearInput = document.getElementById("summaryYearInput");
+  if (!yearInput.value) yearInput.value = new Date().getFullYear();
+  renderSummary();
+}
+
+function renderSummary(){
+  let filtered = [];
+  let label = "";
+
+  if (summaryMode === "month"){
+    const value = document.getElementById("summaryMonthInput").value;
+    if (!value) return;
+    filtered = expenses.filter(e => e.date.slice(0,7) === value);
+    const [y, m] = value.split("-");
+    label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  } else {
+    const year = document.getElementById("summaryYearInput").value;
+    if (!year) return;
+    filtered = expenses.filter(e => e.date.slice(0,4) === String(year));
+    label = String(year);
+  }
+
+  const total = filtered.reduce((sum, e) => sum + e.amount, 0);
+  document.getElementById("summaryTotalLabel").textContent = `Total spent — ${label}`;
+  document.getElementById("summaryTotal").textContent = formatMoney(total);
+
+  const totals = {};
+  CATEGORIES.forEach(c => totals[c.id] = 0);
+  filtered.forEach(e => { totals[e.categoryId] = (totals[e.categoryId] || 0) + e.amount; });
+  const maxSpend = Math.max(1, ...Object.values(totals));
+  const container = document.getElementById("summaryBreakdown");
+
+  if (filtered.length === 0){
+    container.innerHTML = '<div class="empty-state">No expenses in this period.</div>';
+    return;
+  }
+
+  container.innerHTML = CATEGORIES.map(c => {
+    const amount = totals[c.id] || 0;
+    const pct = Math.round((amount / maxSpend) * 100);
+    return `
+      <div class="cat-card">
+        <div class="cat-card-top">
+          <span class="cat-card-emoji">${c.emoji}</span>
+          <span class="cat-card-name">${c.name}</span>
+          <span class="cat-card-amount">${formatMoney(amount)}</span>
+        </div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+  }).join("");
+}
+
 function showScreen(name){
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById("screen-" + name).classList.add("active");
@@ -708,6 +773,7 @@ function showScreen(name){
     if (tabBtn) tabBtn.classList.add("active");
     if (name === "profile") renderProfileScreen();
     if (name === "register") resetRegisterForm();
+    if (name === "summary") renderSummaryScreen();
   }
 
   if (name === "add" && !editingExpenseId) resetAddForm();

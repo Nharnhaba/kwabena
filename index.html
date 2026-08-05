@@ -114,6 +114,7 @@
           <div class="total-amount" id="countTotal" style="color:var(--text-primary)">0</div>
         </div>
       </div>
+      <button class="secondary-btn" onclick="showScreen('summary')" style="margin-bottom:20px">📊 Monthly / yearly summary</button>
 
       <div class="section-row">
         <div class="section-label" style="margin:0">Recent expenses</div>
@@ -210,6 +211,35 @@
       <div class="section-label">Backup & transfer</div>
       <p class="page-sub" style="margin-bottom:12px">Download your account to move it to another device.</p>
       <button class="secondary-btn" onclick="exportAccount()">Export account</button>
+    </section>
+
+    <!-- SCREEN 5 — SUMMARY -->
+    <section id="screen-summary" class="screen">
+      <p class="back-link" onclick="showScreen('dashboard')">‹ Back</p>
+      <h1 class="page-title">Summary</h1>
+      <p class="page-sub">See totals for any month or year</p>
+
+      <div class="toggle-row" style="margin-bottom:16px">
+        <div class="toggle-opt momo active" id="summaryModeMonth" onclick="setSummaryMode('month')">Month</div>
+        <div class="toggle-opt cash" id="summaryModeYear" onclick="setSummaryMode('year')">Year</div>
+      </div>
+
+      <div class="reg-field" id="summaryMonthField">
+        <input id="summaryMonthInput" type="month" onchange="renderSummary()" />
+      </div>
+      <div class="reg-field hidden" id="summaryYearField">
+        <input id="summaryYearInput" type="number" min="2000" max="2100" placeholder="e.g. 2026" onchange="renderSummary()" />
+      </div>
+
+      <div class="totals-row">
+        <div class="total-card big">
+          <div class="total-label" id="summaryTotalLabel">Total spent</div>
+          <div class="total-amount" id="summaryTotal">₵0.00</div>
+        </div>
+      </div>
+
+      <div class="section-label">By category</div>
+      <div id="summaryBreakdown"></div>
     </section>
 
   </div>

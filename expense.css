@@ -520,3 +520,4 @@ input:disabled{
 }
 .modal-btn.cancel{ background: var(--surface); color: var(--text-secondary); border:1px solid var(--border); }
 .modal-btn.confirm{ background: var(--coral); color:#2a0a02; }
+.hidden{ display:none; }
