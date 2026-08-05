@@ -401,3 +401,23 @@ input:disabled{
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+.search-row{
+  display:flex;
+  gap:8px;
+  margin-bottom: 12px;
+}
+.search-row input[type=date]{
+  flex:1;
+}
+.clear-filter-btn{
+  width:42px; height:42px; flex-shrink:0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor:pointer;
+  font-size: 14px;
+}
+.clear-filter-btn:hover{ color: var(--coral); border-color: var(--coral); }
+.clear-filter-btn.hidden{ display:none; }

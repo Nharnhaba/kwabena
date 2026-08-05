@@ -106,7 +106,11 @@
         </div>
       </div>
 
-      <div class="section-label">Recent expenses</div>
+     <div class="section-label">Recent expenses</div>
+      <div class="search-row">
+        <input id="dateFilter" type="date" onchange="applyDateFilter()" />
+        <button class="clear-filter-btn hidden" id="clearFilterBtn" onclick="clearDateFilter()">✕</button>
+      </div>
       <div id="recentList"></div>
     </section>
 

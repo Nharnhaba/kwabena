@@ -11,6 +11,7 @@ let expenses = [];
 let currentUser = null;
 let selectedCategoryId = null;
 let selectedMethod = "momo";
+let dateFilterValue = null;
 
 const DB_NAME = "sika-db";
 const DB_VERSION = 2;
@@ -312,15 +313,23 @@ function renderDashboard(){
   document.getElementById("dashDateLabel").textContent =
     new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
-  const recent = [...expenses].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
+  let listSource = [...expenses].sort((a,b) => new Date(b.date) - new Date(a.date));
+  if (dateFilterValue){
+    listSource = listSource.filter(e => e.date === dateFilterValue);
+  } else {
+    listSource = listSource.slice(0, 8);
+  }
+
   const list = document.getElementById("recentList");
 
-  if (recent.length === 0){
-    list.innerHTML = '<div class="empty-state">No expenses yet. Tap + to add your first one.</div>';
+  if (listSource.length === 0){
+    list.innerHTML = dateFilterValue
+      ? '<div class="empty-state">No expenses on that date.</div>'
+      : '<div class="empty-state">No expenses yet. Tap + to add your first one.</div>';
     return;
   }
 
-  list.innerHTML = recent.map(e => {
+  list.innerHTML = listSource.map(e => {
     const cat = getCategory(e.categoryId);
     const badgeClass = e.method === "momo" ? "badge-momo" : "badge-cash";
     const badgeLabel = e.method === "momo" ? "Mobile money" : "Cash";
@@ -338,6 +347,20 @@ function renderDashboard(){
         <button class="ticket-del" onclick="deleteExpense(${e.id})" aria-label="Delete">✕</button>
       </div>`;
   }).join("");
+}
+
+function applyDateFilter(){
+  const value = document.getElementById("dateFilter").value;
+  dateFilterValue = value || null;
+  document.getElementById("clearFilterBtn").classList.toggle("hidden", !dateFilterValue);
+  renderDashboard();
+}
+
+function clearDateFilter(){
+  dateFilterValue = null;
+  document.getElementById("dateFilter").value = "";
+  document.getElementById("clearFilterBtn").classList.add("hidden");
+  renderDashboard();
 }
 
 async function deleteExpense(id){
