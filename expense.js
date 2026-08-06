@@ -19,12 +19,13 @@ let expenses = [];
 let currentUser = null;
 let selectedCategoryId = null;
 let selectedMethod = "momo";
-let selectedType = "expense"
+let selectedType = "expense";
+
+// Dashboard state
 let dateFilterValue = null;
 let quickFilter = null;
 let summaryMode = "month";
-let editingExpenseId = null;;
-
+let editingExpenseId = null;
 const SESSION_KEY = "sika-session";
 
 async function hashPassword(password){
