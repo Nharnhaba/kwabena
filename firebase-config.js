@@ -6,6 +6,9 @@ const firebaseConfig = {
   messagingSenderId: "215957107746",
   appId: "1:215957107746:web:3ac9ef20f2e160d760467b"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+db.settings({
+  experimentalAutoDetectLongPolling: true,
+  useFetchStreams: false
+});
