@@ -30,9 +30,11 @@ async function hashPassword(password){
 }
 
 async function getUser(username){
-  const doc = await db.collection("users").doc(username).get();
-  if (!doc.exists) throw new Error("No such user");
-  return doc.data();
+  try{
+    const doc=await db.collection("users").doc(username).get();
+    if(!doc.exists) return null;
+    return doc.data();
+  }catch(err){console.error(err);throw err;}
 }
 
 async function createUser(user){
@@ -79,21 +81,6 @@ async function deleteExpenseFromDB(id){
   } catch (err) {
     console.error("Failed to delete expense:", err);
     alert("Couldn't delete that entry. Check your internet connection.");
-  }
-}
-
-async function updateExpenseInDB(expense){
-  try {
-    const db = await openDB();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction("expenses", "readwrite");
-      tx.objectStore("expenses").put(expense);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch (err) {
-    console.error("Failed to update expense:", err);
-    alert("Couldn't save changes. Try again.");
   }
 }
 
@@ -159,7 +146,7 @@ async function loginUser(){
     localStorage.setItem(SESSION_KEY, username);
     enterApp();
   } catch (err) {
-    errorEl.textContent = "Incorrect username or password.";
+    console.error(err); errorEl.textContent = err.message || "Incorrect username or password.";
   } finally {
     btn.disabled = false;
     btn.textContent = "Log in";
@@ -204,7 +191,7 @@ async function registerUser(){
     localStorage.setItem(SESSION_KEY, username);
     enterApp();
   } catch (err) {
-    errorEl.textContent = "Couldn't create your account. Try again.";
+    console.error(err); errorEl.textContent = err.message || "Couldn't create your account. Try again.";
     btn.disabled = false;
     btn.textContent = "Create account";
   }
