@@ -19,7 +19,11 @@ let expenses = [];
 let currentUser = null;
 let selectedCategoryId = null;
 let selectedMethod = "momo";
-let selectedType = "expense";
+let selectedType = "expense"
+let dateFilterValue = null;
+let quickFilter = null;
+let summaryMode = "month";
+let editingExpenseId = null;;
 
 const SESSION_KEY = "sika-session";
 
