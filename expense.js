@@ -20,6 +20,7 @@ let currentUser = null;
 let selectedCategoryId = null;
 let selectedMethod = "momo";
 let selectedType = "expense";
+let budgets = {};
 
 // Dashboard state
 let dateFilterValue = null;
@@ -86,6 +87,25 @@ async function deleteExpenseFromDB(id){
   } catch (err) {
     console.error("Failed to delete expense:", err);
     alert("Couldn't delete that entry. Check your internet connection.");
+  }
+}
+
+async function loadBudgetsForUser(username){
+  try {
+    const doc = await db.collection("budgets").doc(username).get();
+    return doc.exists ? doc.data() : {};
+  } catch (err) {
+    console.error("Failed to load budgets:", err);
+    return {};
+  }
+}
+
+async function saveBudgetsForUser(username, budgetData){
+  try {
+    await db.collection("budgets").doc(username).set(budgetData);
+  } catch (err) {
+    console.error("Failed to save budgets:", err);
+    alert("Couldn't save budget. Check your connection and try again.");
   }
 }
 
@@ -651,6 +671,53 @@ function renderCategories(){
   renderBreakdownInto("incomeBreakdown", monthEntries.filter(e => e.type === "income"), INCOME_CATEGORIES);
 }
 
+function renderBudgetsScreen(){
+  const monthExpenses = expenses.filter(e => isThisMonth(e.date) && (e.type || "expense") === "expense");
+  const spentByCategory = {};
+  CATEGORIES.forEach(c => spentByCategory[c.id] = 0);
+  monthExpenses.forEach(e => { spentByCategory[e.categoryId] = (spentByCategory[e.categoryId] || 0) + e.amount; });
+
+  const container = document.getElementById("budgetList");
+  container.innerHTML = CATEGORIES.map(c => {
+    const limit = budgets[c.id] || 0;
+    const spent = spentByCategory[c.id] || 0;
+    const pct = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
+    let barClass = "ok";
+    let statusText = limit > 0 ? `${formatMoney(spent)} of ${formatMoney(limit)}` : "No budget set";
+    let statusClass = "";
+    if (limit > 0){
+      if (spent > limit){ barClass = "over"; statusClass = "over"; statusText = `${formatMoney(spent)} of ${formatMoney(limit)} — over budget`; }
+      else if (pct >= 80){ barClass = "warn"; }
+    }
+    return `
+      <div class="budget-card">
+        <div class="budget-card-top">
+          <span class="budget-card-emoji">${c.emoji}</span>
+          <span class="budget-card-name">${c.name}</span>
+          <div class="budget-input-wrap">
+            <span>₵</span>
+            <input type="number" min="0" step="1" placeholder="0"
+              value="${limit || ''}"
+              onchange="setBudget('${c.id}', this.value)" />
+          </div>
+        </div>
+        ${limit > 0 ? `<div class="budget-progress-track"><div class="budget-progress-fill ${barClass}" style="width:${pct}%"></div></div>` : ''}
+        <div class="budget-status ${statusClass}">${statusText}</div>
+      </div>`;
+  }).join("");
+}
+
+async function setBudget(categoryId, value){
+  const amount = parseFloat(value);
+  if (!amount || amount <= 0){
+    delete budgets[categoryId];
+  } else {
+    budgets[categoryId] = amount;
+  }
+  await saveBudgetsForUser(currentUser.username, budgets);
+  renderBudgetsScreen();
+}
+
 function renderBreakdownInto(containerId, entries, categoryList){
   const totals = {};
   categoryList.forEach(c => totals[c.id] = 0);
@@ -744,13 +811,15 @@ function showScreen(name){
     if (name === "profile") renderProfileScreen();
     if (name === "register") resetRegisterForm();
     if (name === "summary") renderSummaryScreen();
+    if (name === "budgets") renderBudgetsScreen();
   }
 
   if (name === "add" && !editingExpenseId) resetAddForm();
   if (name === "categories") renderCategories();
 }
 
-function enterApp(){
+async function enterApp(){
+  budgets = await loadBudgetsForUser(currentUser.username);
   renderDashboard();
   renderCategoryGrid();
   renderCategories();

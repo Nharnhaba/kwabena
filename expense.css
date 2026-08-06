@@ -524,3 +524,34 @@ input:disabled{
 .toggle-opt.type-income.active{ background: var(--green); color:#04231a; }
 .balance-card .total-amount{ color: var(--gold); }
 .ticket-amount.income{ color: var(--green); }
+
+.budget-card{
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.budget-card-top{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.budget-card-emoji{ font-size:18px; }
+.budget-card-name{ flex:1; font-weight:500; font-size:14px; }
+.budget-input-wrap{ display:flex; align-items:center; gap:6px; }
+.budget-input-wrap span{ font-size:13px; color: var(--text-muted); }
+.budget-input-wrap input{
+  width:90px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 8px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size:13px;
+  outline:none;
+}
+.budget-progress-track{ height:6px; border-radius:4px; background: var(--bg-soft); overflow:hidden; margin-top:10px; }
+.budget-progress-fill{ height:100%; border-radius:4px; }
+.budget-progress-fill.ok{ background: var(--green); }
+.budget-progress-fill.warn{ background: var(--gold); }
+.budget-progress-fill.over{ background: var(--coral); }
+.budget-status{ font-size:11px; color: var(--text-muted); margin-top:6px; }
+.budget-status.over{ color: var(--coral); }

@@ -182,7 +182,10 @@
       <h1 class="page-title">Categories</h1>
       <p class="page-sub">Spending and income, this month</p>
 
-      <div class="section-label">Spending by category</div>
+      <div class="section-row">
+        <div class="section-label" style="margin:0">Spending by category</div>
+        <button class="export-btn" onclick="showScreen('budgets')">Set budgets</button>
+      </div>
       <div id="categoryBreakdown"></div>
 
       <div class="section-label">Income by source</div>
@@ -267,6 +270,16 @@
 
       <div class="section-label">Income by source</div>
       <div id="summaryIncomeBreakdown"></div>
+      <div class="section-label">By category</div>
+      <div id="summaryBreakdown"></div>
+    </section>
+
+    <!-- SCREEN 6 — BUDGETS -->
+    <section id="screen-budgets" class="screen">
+      <p class="back-link" onclick="showScreen('categories')">‹ Back</p>
+      <h1 class="page-title">Monthly budgets</h1>
+      <p class="page-sub">Set a spending limit per category</p>
+      <div id="budgetList"></div>
     </section>
 
   </div>
