@@ -1,9 +1,10 @@
-const CACHE_NAME = "sika-cache-v8";
+const CACHE_NAME = "sika-cache-v10";
 const ASSETS = [
   "./",
   "./index.html",
   "./expense.css",
   "./expense.js",
+  "./firebase-config.js",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png"

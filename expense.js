@@ -6,6 +6,7 @@ const CATEGORIES = [
   { id: "hustle",    name: "Hustle",          emoji: "💼" },
   { id: "cars",      name: "Cars",            emoji: "🚗" },
 ];
+
 const INCOME_CATEGORIES = [
   { id: "salary",   name: "Salary",        emoji: "💰" },
   { id: "business", name: "Business",      emoji: "🧾" },
@@ -18,42 +19,9 @@ let expenses = [];
 let currentUser = null;
 let selectedCategoryId = null;
 let selectedMethod = "momo";
-let editingExpenseId = null;
-let dateFilterValue = null;
-let quickFilter = null;
-let summaryMode = "month";
 let selectedType = "expense";
 
-const DB_NAME = "sika-db";
-const DB_VERSION = 2;
 const SESSION_KEY = "sika-session";
-let dbInstance = null;
-
-function openDB(){
-  return new Promise((resolve, reject) => {
-    if (dbInstance) return resolve(dbInstance);
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      const tx = e.target.transaction;
-      if (db.objectStoreNames.contains("profile")) db.deleteObjectStore("profile");
-      if (!db.objectStoreNames.contains("users")) {
-        db.createObjectStore("users", { keyPath: "username" });
-      }
-      let expenseStore;
-      if (!db.objectStoreNames.contains("expenses")) {
-        expenseStore = db.createObjectStore("expenses", { keyPath: "id" });
-      } else {
-        expenseStore = tx.objectStore("expenses");
-      }
-      if (!expenseStore.indexNames.contains("by_username")) {
-        expenseStore.createIndex("by_username", "username", { unique: false });
-      }
-    };
-    req.onsuccess = (e) => { dbInstance = e.target.result; resolve(dbInstance); };
-    req.onerror = (e) => reject(e.target.error);
-  });
-}
 
 async function hashPassword(password){
   const enc = new TextEncoder().encode(password);
@@ -62,75 +30,55 @@ async function hashPassword(password){
 }
 
 async function getUser(username){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("users", "readonly");
-    const req = tx.objectStore("users").get(username);
-    req.onsuccess = () => req.result ? resolve(req.result) : reject(new Error("No such user"));
-    req.onerror = () => reject(req.error);
-  });
+  const doc = await db.collection("users").doc(username).get();
+  if (!doc.exists) throw new Error("No such user");
+  return doc.data();
 }
 
 async function createUser(user){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("users", "readwrite");
-    tx.objectStore("users").add(user);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
+  await db.collection("users").doc(user.username).set(user);
+  return true;
 }
 
 async function updateUserInDB(user){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("users", "readwrite");
-    tx.objectStore("users").put(user); // put() overwrites the existing record
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
+  await db.collection("users").doc(user.username).set(user);
+  return true;
 }
 
 async function loadExpensesForUser(username){
   try {
-    const db = await openDB();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction("expenses", "readonly");
-      const req = tx.objectStore("expenses").index("by_username").getAll(username);
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    });
+    const snapshot = await db.collection("expenses").where("username", "==", username).get();
+    return snapshot.docs.map(doc => doc.data());
   } catch (err) {
+    console.error("Failed to load expenses:", err);
     return [];
   }
 }
 
 async function addExpenseToDB(expense){
   try {
-    const db = await openDB();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction("expenses", "readwrite");
-      tx.objectStore("expenses").add(expense);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
+    await db.collection("expenses").doc(String(expense.id)).set(expense);
   } catch (err) {
     console.error("Failed to save expense:", err);
-    alert("Couldn't save that expense. Try again.");
+    alert("Couldn't save that entry. Check your internet connection and try again.");
+  }
+}
+
+async function updateExpenseInDB(expense){
+  try {
+    await db.collection("expenses").doc(String(expense.id)).set(expense);
+  } catch (err) {
+    console.error("Failed to update expense:", err);
+    alert("Couldn't save changes. Check your internet connection and try again.");
   }
 }
 
 async function deleteExpenseFromDB(id){
   try {
-    const db = await openDB();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction("expenses", "readwrite");
-      tx.objectStore("expenses").delete(id);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
+    await db.collection("expenses").doc(String(id)).delete();
   } catch (err) {
     console.error("Failed to delete expense:", err);
+    alert("Couldn't delete that entry. Check your internet connection.");
   }
 }
 
