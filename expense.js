@@ -843,4 +843,22 @@ async function init(){
   }
   document.getElementById("loadingOverlay").classList.add("hidden");
 }
+  const params = new URLSearchParams(window.location.search);
+  const action = params.get("action");
+  if (currentUser && action === "add") showScreen("add");
+  if (currentUser && action === "summary") showScreen("summary");
+
+  if ("launchQueue" in window){
+    window.launchQueue.setConsumer((launchParams) => {
+      if (launchParams.files && launchParams.files.length){
+        launchParams.files[0].getFile().then((file) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            document.getElementById("importFileInputLogin")?.dispatchEvent
+              ? null : null;
+          };
+        });
+      }
+    });
+  }
 init();
