@@ -1,10 +1,10 @@
 {
-  "id": "/sika-expense-tracker/",
+  "id": "/kwabena/",
   "name": "Sika — Expense Tracker",
   "short_name": "Sika",
   "description": "Track your mobile money and cash spending, income, and budgets — right from your phone.",
-  "start_url": "./index.html",
-  "scope": "./",
+  "start_url": "/kwabena/",
+  "scope": "/kwabena/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "background_color": "#10112a",
@@ -16,7 +16,7 @@
   "prefer_related_applications": false,
   "iarc_rating_id": "",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
   "screenshots": [
@@ -29,28 +29,29 @@
       "name": "Add expense",
       "short_name": "Add",
       "description": "Quickly log a new expense",
-      "url": "./index.html?action=add",
+      "url": "/kwabena/?action=add",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Summary",
       "short_name": "Summary",
       "description": "See your monthly summary",
-      "url": "./index.html?action=summary",
+      "url": "/kwabena/?action=summary",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ],
   "share_target": {
-    "action": "./index.html",
+    "action": "/kwabena/",
     "method": "GET",
     "params": {
-      "title": "shared_title",
-      "text": "shared_text"
+      "title": "title",
+      "text": "text",
+      "url": "url"
     }
   },
   "file_handlers": [
     {
-      "action": "./index.html",
+      "action": "/kwabena/",
       "accept": {
         "application/json": [".json"]
       }
@@ -59,7 +60,7 @@
   "protocol_handlers": [
     {
       "protocol": "web+sika",
-      "url": "./index.html?entry=%s"
+      "url": "/kwabena/?entry=%s"
     }
   ],
   "edge_side_panel": {
@@ -70,6 +71,6 @@
   },
   "handle_links": "preferred",
   "note_taking": {
-    "new_note_url": "./index.html?action=add"
+    "new_note_url": "/kwabena/?action=add"
   }
 }
