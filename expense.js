@@ -21,6 +21,7 @@ let selectedCategoryId = null;
 let selectedMethod = "momo";
 let selectedType = "expense";
 let budgets = {};
+let recurringTemplates = [];
 
 // Dashboard state
 let dateFilterValue = null;
@@ -28,6 +29,39 @@ let quickFilter = null;
 let summaryMode = "month";
 let editingExpenseId = null;
 const SESSION_KEY = "sika-session";
+let searchQuery = "";
+let filterCategoryId = "";
+let filterMinAmount = null;
+let filterMaxAmount = null;
+
+function applySearch(){
+  searchQuery = document.getElementById("searchInput").value.trim().toLowerCase();
+  filterCategoryId = document.getElementById("categoryFilterSelect").value;
+  const min = document.getElementById("minAmountInput").value;
+  const max = document.getElementById("maxAmountInput").value;
+  filterMinAmount = min ? parseFloat(min) : null;
+  filterMaxAmount = max ? parseFloat(max) : null;
+
+  if (searchQuery || filterCategoryId || filterMinAmount !== null || filterMaxAmount !== null){
+    quickFilter = null;
+    dateFilterValue = null;
+    document.querySelectorAll(".chip-btn").forEach(b => b.classList.remove("active"));
+  }
+
+  renderDashboard();
+}
+
+function clearSearch(){
+  document.getElementById("searchInput").value = "";
+  document.getElementById("categoryFilterSelect").value = "";
+  document.getElementById("minAmountInput").value = "";
+  document.getElementById("maxAmountInput").value = "";
+  searchQuery = "";
+  filterCategoryId = "";
+  filterMinAmount = null;
+  filterMaxAmount = null;
+  renderDashboard();
+}
 
 async function hashPassword(password){
   const enc = new TextEncoder().encode(password);
@@ -62,6 +96,24 @@ async function loadExpensesForUser(username){
     return [];
   }
 }
+async function loadExpensesForHousehold(householdId){
+  try {
+    const snapshot = await db.collection("expenses").where("householdId", "==", householdId).get();
+    return snapshot.docs.map(doc => doc.data());
+  } catch (err) {
+    console.error("Failed to load expenses:", err);
+    return [];
+  }
+}
+async function loadRecurringForUser(username){
+  try {
+    const snapshot = await db.collection("recurring").where("username", "==", username).get();
+    return snapshot.docs.map(doc => doc.data());
+  } catch (err) {
+    console.error("Failed to load recurring templates:", err);
+    return [];
+  }
+}
 
 async function addExpenseToDB(expense){
   try {
@@ -69,6 +121,37 @@ async function addExpenseToDB(expense){
   } catch (err) {
     console.error("Failed to save expense:", err);
     alert("Couldn't save that entry. Check your internet connection and try again.");
+  }
+}
+async function addRecurringToDB(template){
+  try {
+    await db.collection("recurring").doc(String(template.id)).set(template);
+  } catch (err) {
+    console.error("Failed to save recurring template:", err);
+    alert("Couldn't save that recurring entry. Check your internet connection and try again.");
+  }
+}
+
+async function updateRecurringInDB(template){
+  try {
+    await db.collection("recurring").doc(String(template.id)).set(template);
+  } catch (err) {
+    console.error("Failed to update recurring template:", err);
+    alert("Couldn't update that recurring entry. Check your internet connection and try again.");
+  }
+}
+
+async function saveRecurringTemplatesToDB(templates){
+  try {
+    const batch = db.batch();
+    templates.forEach(t => {
+      const ref = db.collection("recurring").doc(String(t.id));
+      batch.set(ref, t);
+    });
+    await batch.commit();
+  } catch (err) {
+    console.error("Failed to save recurring templates:", err);
+    alert("Couldn't sync recurring entries. Check your internet connection and try again.");
   }
 }
 
@@ -109,8 +192,21 @@ async function saveBudgetsForUser(username, budgetData){
   }
 }
 
-function formatMoney(n){
-  return "₵" + n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function toggleRateInput(){
+  const currency = document.getElementById("currencyInput").value;
+  const rateRow = document.getElementById("rateRow");
+  if (currency === "GHS"){
+    rateRow.classList.add("hidden");
+  } else {
+    rateRow.classList.remove("hidden");
+    document.getElementById("rateCurrencyLabel").textContent = currency;
+  }
+}
+
+function formatMoney(n, currency = "GHS"){
+  const symbols = { GHS: "₵", USD: "$", GBP: "£", EUR: "€" };
+  const symbol = symbols[currency] || "₵";
+  return symbol + n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function getCategory(id){
   return CATEGORIES.find(c => c.id === id) || { name: "Other", emoji: "•" };
@@ -221,7 +317,10 @@ async function loginUser(){
     if (hash !== user.passwordHash) throw new Error("Wrong password");
 
     currentUser = user;
-    expenses = await loadExpensesForUser(username);
+    const householdId = currentUser.householdId || currentUser.username;
+    expenses = await loadExpensesForHousehold(householdId);
+    recurringTemplates = await loadRecurringForUser(username);
+    await processRecurringEntries();
     localStorage.setItem(SESSION_KEY, username);
     enterApp();
   } catch (err) {
@@ -237,6 +336,7 @@ async function registerUser(){
   const phone = document.getElementById("regPhone").value.trim();
   const username = document.getElementById("regUsername").value.trim().toLowerCase();
   const password = document.getElementById("regPassword").value;
+  const inviteCode = document.getElementById("regInviteCode")?.value.trim().toLowerCase();
   const errorEl = document.getElementById("regError");
   const btn = document.getElementById("regBtn");
 
@@ -262,11 +362,23 @@ async function registerUser(){
       return;
     }
 
+    let householdId = username; // default: own household
+    if (inviteCode){
+      const host = await getUser(inviteCode).catch(() => null);
+      if (!host){
+        errorEl.textContent = "That household code wasn't found.";
+        btn.disabled = false;
+        btn.textContent = "Create account";
+        return;
+      }
+      householdId = host.householdId || host.username;
+    }
+
     const passwordHash = await hashPassword(password);
-    currentUser = { username, passwordHash, name, phone, createdAt: new Date().toISOString() };
+    currentUser = { username, passwordHash, name, phone, householdId, createdAt: new Date().toISOString() };
     await createUser(currentUser);
 
-    expenses = [];
+    expenses = await loadExpensesForHousehold(householdId);
     localStorage.setItem(SESSION_KEY, username);
     enterApp();
   } catch (err) {
@@ -458,6 +570,29 @@ async function saveProfileChanges(){
     btn.textContent = "Save changes";
   }
 }
+async function processRecurringEntries(){
+  const today = new Date().toISOString().slice(0,10);
+
+  for (const template of recurringTemplates){
+    while (template.nextDate <= today){
+      const newExpense = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        username: template.username,
+        amount: template.amount,
+        categoryId: template.categoryId,
+        method: template.method,
+        note: template.note,
+        date: template.nextDate,
+        type: template.type,
+      };
+      expenses.push(newExpense);
+      await addExpenseToDB(newExpense);
+
+      template.nextDate = getNextOccurrence(template.nextDate, template.frequency);
+    }
+  }
+  await saveRecurringTemplatesToDB(recurringTemplates);
+}
 function renderDashboard(){
   document.getElementById("dashGreeting").textContent = currentUser ? `Hi, ${currentUser.username}` : "Sika";
   document.getElementById("profileAvatar").textContent = usernameInitials(currentUser?.username);
@@ -491,6 +626,39 @@ if (dateFilterValue){
 } else {
   listSource = listSource.slice(0, 8);
 }
+let listSource = [...expenses].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+const hasSearchFilter = searchQuery || filterCategoryId || filterMinAmount !== null || filterMaxAmount !== null;
+
+if (hasSearchFilter){
+  listSource = listSource.filter(e => {
+    if (searchQuery){
+      const cat = getCategoryAny(e.categoryId, e.type || "expense");
+      const noteMatch = (e.note || "").toLowerCase().includes(searchQuery);
+      const catMatch = cat.name.toLowerCase().includes(searchQuery);
+      if (!noteMatch && !catMatch) return false;
+    }
+    if (filterCategoryId && e.categoryId !== filterCategoryId) return false;
+    if (filterMinAmount !== null && e.amount < filterMinAmount) return false;
+    if (filterMaxAmount !== null && e.amount > filterMaxAmount) return false;
+    return true;
+  });
+} else if (dateFilterValue){
+  listSource = listSource.filter(e => e.date === dateFilterValue);
+} else if (quickFilter === "week"){
+  listSource = listSource.filter(e => isThisWeek(e.date));
+} else if (quickFilter === "lastweek"){
+  listSource = listSource.filter(e => isLastWeek(e.date));
+} else if (quickFilter === "month"){
+  listSource = listSource.filter(e => isThisMonth(e.date));
+} else if (quickFilter === "lastmonth"){
+  listSource = listSource.filter(e => isLastMonth(e.date));
+} else {
+  listSource = listSource.slice(0, 8);
+}
+
+const list = document.getElementById("recentList");
+const filterActive = hasSearchFilter || dateFilterValue || quickFilter;
   const list = document.getElementById("recentList");
   const filterActive = dateFilterValue || quickFilter;
 
@@ -513,8 +681,8 @@ if (dateFilterValue){
         <div class="ticket-icon">${cat.emoji}</div>
         <div class="ticket-body">
           <div class="ticket-cat">${cat.name}</div>
-          <div class="ticket-note">${e.note || formatDateLabel(e.date)}</div>
-        </div>
+         <div class="ticket-note">${e.note || formatDateLabel(e.date)}${e.originalCurrency && e.originalCurrency !== "GHS" ? ` · ${formatMoney(e.originalAmount, e.originalCurrency)}` : ""}</div>
+         </div>
         <div class="ticket-right">
           <div class="${amountClass}">${sign}${formatMoney(e.amount)}</div>
           <span class="ticket-badge ${badgeClass}">${badgeLabel}</span>
@@ -620,6 +788,12 @@ function renderCategoryGrid(){
     </div>
   `).join("");
 }
+function populateCategoryFilter(){
+  const select = document.getElementById("categoryFilterSelect");
+  const allCats = [...CATEGORIES, ...INCOME_CATEGORIES];
+  select.innerHTML = '<option value="">All categories</option>' +
+    allCats.map(c => `<option value="${c.id}">${c.emoji} ${c.name}</option>`).join("");
+}
 function selectCategory(id){
   selectedCategoryId = id;
   renderCategoryGrid();
@@ -650,6 +824,8 @@ function resetAddForm(){
   document.getElementById("categoryFieldLabel").textContent = "Category";
   document.getElementById("toggleTypeExpense").classList.add("active");
   document.getElementById("toggleTypeIncome").classList.remove("active");
+  document.getElementById("recurringCheckbox").checked = false;
+  document.getElementById("recurringFrequency").classList.add("hidden");
   renderCategoryGrid();
   setPaymentMethod("momo");
 }
@@ -684,9 +860,17 @@ async function saveExpense(){
   const note = document.getElementById("noteInput").value.trim();
   const date = document.getElementById("dateInput").value || new Date().toISOString().slice(0,10);
   const btn = document.getElementById("saveBtn");
+  const isRecurring = document.getElementById("recurringCheckbox")?.checked;
+  const frequency = document.getElementById("recurringFrequency")?.value;
+  const currency = document.getElementById("currencyInput")?.value || "GHS";
+  const rate = currency === "GHS" ? 1 : parseFloat(document.getElementById("rateInput").value);
+  const householdId = currentUser.householdId || currentUser.username;
 
   if (!amount || amount <= 0){ alert("Enter an amount."); return; }
   if (!selectedCategoryId){ alert(selectedType === "income" ? "Pick a source." : "Pick a category."); return; }
+  if (currency !== "GHS" && (!rate || rate <= 0)){ alert("Enter the exchange rate."); return; }
+
+  const amountGHS = amount * rate;
 
   const wasEditing = !!editingExpenseId;
   btn.disabled = true;
@@ -694,14 +878,18 @@ async function saveExpense(){
 
   if (wasEditing){
     const idx = expenses.findIndex(e => e.id === editingExpenseId);
-    const updatedExpense = { ...expenses[idx], amount, categoryId: selectedCategoryId, method: selectedMethod, note, date, type: selectedType };
+    const updatedExpense = { ...expenses[idx], amount, amountGHS, currency, rate, categoryId: selectedCategoryId, method: selectedMethod, note, date, type: selectedType };
     expenses[idx] = updatedExpense;
     await updateExpenseInDB(updatedExpense);
   } else {
     const newExpense = {
       id: Date.now(),
       username: currentUser.username,
+      householdId,
       amount,
+      amountGHS,
+      currency,
+      rate,
       categoryId: selectedCategoryId,
       method: selectedMethod,
       note,
@@ -710,6 +898,26 @@ async function saveExpense(){
     };
     expenses.push(newExpense);
     await addExpenseToDB(newExpense);
+    if (selectedType === "expense") checkBudgetAlert(selectedCategoryId);
+
+    if (isRecurring){
+      const template = {
+        id: Date.now() + 1,
+        username: currentUser.username,
+        amount,
+        amountGHS,
+        currency,
+        rate,
+        categoryId: selectedCategoryId,
+        method: selectedMethod,
+        note,
+        type: selectedType,
+        frequency,
+        nextDate: getNextOccurrence(date, frequency),
+      };
+      recurringTemplates.push(template);
+      await addRecurringToDB(template);
+    }
   }
 
   btn.disabled = false;
@@ -718,7 +926,19 @@ async function saveExpense(){
   renderCategories();
   showScreen("dashboard");
 }
+function toggleRecurringOptions(){
+  document.getElementById("recurringFrequency").classList.toggle(
+    "hidden",
+    !document.getElementById("recurringCheckbox").checked
+  );
+}
 
+function getNextOccurrence(fromDateStr, frequency){
+  const d = new Date(fromDateStr);
+  if (frequency === "weekly") d.setDate(d.getDate() + 7);
+  else d.setMonth(d.getMonth() + 1); // monthly
+  return d.toISOString().slice(0,10);
+}
 function renderCategories(){
   const monthEntries = expenses.filter(e => isThisMonth(e.date));
   renderBreakdownInto("categoryBreakdown", monthEntries.filter(e => (e.type || "expense") === "expense"), CATEGORIES);
@@ -759,6 +979,34 @@ function renderBudgetsScreen(){
         <div class="budget-status ${statusClass}">${statusText}</div>
       </div>`;
   }).join("");
+}
+function checkBudgetAlert(categoryId){
+  const limit = budgets[categoryId] || 0;
+  if (limit <= 0) return; // no budget set, nothing to check
+
+  const monthExpenses = expenses.filter(e => isThisMonth(e.date) && (e.type || "expense") === "expense" && e.categoryId === categoryId);
+  const spent = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const pct = Math.round((spent / limit) * 100);
+  const cat = CATEGORIES.find(c => c.id === categoryId);
+  const catName = cat ? cat.name : "this category";
+
+  if (spent > limit){
+    showBudgetToast(`⚠️ You're over budget on ${catName} — ${formatMoney(spent)} of ${formatMoney(limit)}.`, "over");
+  } else if (pct >= 80){
+    showBudgetToast(`You've used ${pct}% of your ${catName} budget (${formatMoney(spent)} of ${formatMoney(limit)}).`, "warn");
+  }
+}
+
+function showBudgetToast(message, type){
+  const toast = document.createElement("div");
+  toast.className = `budget-toast ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.classList.add("show"), 10);
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
 }
 
 async function setBudget(categoryId, value){
@@ -843,6 +1091,50 @@ function renderSummary(){
 
   renderBreakdownInto("summaryBreakdown", expenseEntries, CATEGORIES);
   renderBreakdownInto("summaryIncomeBreakdown", incomeEntries, INCOME_CATEGORIES);
+  renderSummaryChart(expenseEntries, CATEGORIES);
+}
+
+let summaryChartInstance = null;
+
+function renderSummaryChart(expenseEntries, categories){
+  const totals = {};
+  expenseEntries.forEach(e => {
+    totals[e.categoryId] = (totals[e.categoryId] || 0) + e.amount;
+  });
+
+  const labels = [];
+  const data = [];
+  const colors = [];
+  const palette = ["#ffc93c", "#ff5c5c", "#5cd6ff", "#7c5cff", "#5cff8f", "#ff8f5c", "#c95cff", "#5cffea"];
+
+  categories.forEach((c, i) => {
+    if (totals[c.id] > 0){
+      labels.push(c.name);
+      data.push(totals[c.id]);
+      colors.push(palette[i % palette.length]);
+    }
+  });
+
+  const ctx = document.getElementById("summaryChart").getContext("2d");
+
+  if (summaryChartInstance) summaryChartInstance.destroy();
+
+  if (data.length === 0){
+    return; // nothing to chart
+  }
+
+  summaryChartInstance = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: colors, borderWidth: 0 }]
+    },
+    options: {
+      plugins: {
+        legend: { position: "bottom", labels: { color: "#fff", boxWidth: 12, font: { size: 11 } } }
+      }
+    }
+  });
 }
 
 function showScreen(name){
@@ -915,4 +1207,17 @@ async function init(){
       }
     });
   }
+  function toggleTheme(){
+  const isLight = document.body.classList.toggle("light-theme");
+  localStorage.setItem("sika-theme", isLight ? "light" : "dark");
+  document.getElementById("themeToggleBtn").textContent = isLight ? "☀️" : "🌙";
+}
+
+function loadTheme(){
+  const saved = localStorage.getItem("sika-theme");
+  if (saved === "light"){
+    document.body.classList.add("light-theme");
+    document.getElementById("themeToggleBtn").textContent = "☀️";
+  }
+}
 init();

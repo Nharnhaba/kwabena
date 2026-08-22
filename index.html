@@ -11,6 +11,8 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon-192.png" />
 <link rel="apple-touch-icon" href="icon-192.png" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<button id="themeToggleBtn" onclick="toggleTheme()" aria-label="Toggle theme">🌙</button>
 <meta name="theme-color" content="#10112a" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -81,6 +83,8 @@
       <button class="reg-btn" id="regBtn" onclick="registerUser()">Create account</button>
       <div class="reg-error" id="regError"></div>
 
+      <input type="text" id="regInviteCode" placeholder="Household code (optional — leave blank for your own)">
+
       <p class="auth-link" onclick="showScreen('login')">Already have an account? <span>Log in</span></p>
     </section>
 
@@ -131,6 +135,17 @@
         <button class="export-btn" onclick="exportCSV()">Export CSV</button>
       </div>
 
+      <div class="search-filter-bar">
+  <input type="text" id="searchInput" placeholder="Search by note or category…" oninput="applySearch()">
+  <div class="filter-row">
+    <select id="categoryFilterSelect" onchange="applySearch()">
+      <option value="">All categories</option>
+    </select>
+    <input type="number" id="minAmountInput" placeholder="Min ₵" min="0" oninput="applySearch()">
+    <input type="number" id="maxAmountInput" placeholder="Max ₵" min="0" oninput="applySearch()">
+  </div>
+</div>
+
      <div class="filter-chips">
   <button class="chip-btn" id="chipWeek" onclick="setQuickFilter('week')">This week</button>
   <button class="chip-btn" id="chipLastWeek" onclick="setQuickFilter('lastweek')">Last week</button>
@@ -154,6 +169,19 @@
         <div class="currency">GH₵</div>
         <input id="amountInput" type="text" inputmode="decimal" placeholder="0.00" />
       </div>
+      <div class="amount-row">
+  <input type="number" id="amountInput" placeholder="0.00" step="0.01">
+  <select id="currencyInput" onchange="toggleRateInput()">
+    <option value="GHS" selected>GH₵</option>
+    <option value="USD">USD</option>
+    <option value="GBP">GBP</option>
+    <option value="EUR">EUR</option>
+  </select>
+</div>
+<div id="rateRow" class="rate-row hidden">
+  <label>Exchange rate (1 <span id="rateCurrencyLabel"></span> = ? GH₵)</label>
+  <input type="number" id="rateInput" placeholder="e.g. 15.20" step="0.01">
+</div>
 
       <div class="toggle-row" style="margin-bottom:16px">
         <div class="toggle-opt type-expense active" id="toggleTypeExpense" onclick="setEntryType('expense')">Expense</div>
@@ -174,6 +202,17 @@
 
       <div class="field-label">Date</div>
       <input id="dateInput" type="date" />
+
+      <div class="recurring-toggle">
+  <label>
+    <input type="checkbox" id="recurringCheckbox" onchange="toggleRecurringOptions()">
+    Make this recurring
+  </label>
+  <select id="recurringFrequency" class="hidden">
+    <option value="weekly">Every week</option>
+    <option value="monthly" selected>Every month</option>
+  </select>
+</div>
 
       <button class="save-btn" id="saveBtn" onclick="saveExpense()">Save expense</button>
     </section>
@@ -268,6 +307,8 @@
 
       <div class="section-label">Spending by category</div>
       <div id="summaryBreakdown"></div>
+
+      <canvas id="summaryChart" height="220"></canvas>
 
       <div class="section-label">Income by source</div>
       <div id="summaryIncomeBreakdown"></div>
