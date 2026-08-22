@@ -550,13 +550,12 @@ function setQuickFilter(mode){
   document.getElementById("dateFilter").value = "";
   document.getElementById("clearFilterBtn").classList.add("hidden");
   document.querySelectorAll(".chip-btn").forEach(b => b.classList.remove("active"));
-  const chipIds = { week: "chipWeek", lastweek: "chipLastWeek", month: "chipMonth" };
+  const chipIds = { week: "chipWeek", lastweek: "chipLastWeek", month: "chipMonth", lastmonth: "chipLastMonth" };
   if (quickFilter && chipIds[quickFilter]){
     document.getElementById(chipIds[quickFilter]).classList.add("active");
   }
   renderDashboard();
 }
-
 function exportCSV(){
   if (expenses.length === 0){
     alert("No entries to export yet.");
