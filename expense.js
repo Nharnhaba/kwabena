@@ -613,52 +613,37 @@ function renderDashboard(){
     new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
   let listSource = [...expenses].sort((a,b) => new Date(b.date) - new Date(a.date));
-if (dateFilterValue){
-  listSource = listSource.filter(e => e.date === dateFilterValue);
-} else if (quickFilter === "week"){
-  listSource = listSource.filter(e => isThisWeek(e.date));
-} else if (quickFilter === "lastweek"){
-  listSource = listSource.filter(e => isLastWeek(e.date));
-} else if (quickFilter === "month"){
-  listSource = listSource.filter(e => isThisMonth(e.date));
-} else if (quickFilter === "lastmonth"){
-  listSource = listSource.filter(e => isLastMonth(e.date));
-} else {
-  listSource = listSource.slice(0, 8);
-}
 
+  const hasSearchFilter = searchQuery || filterCategoryId || filterMinAmount !== null || filterMaxAmount !== null;
 
-const hasSearchFilter = searchQuery || filterCategoryId || filterMinAmount !== null || filterMaxAmount !== null;
+  if (hasSearchFilter){
+    listSource = listSource.filter(e => {
+      if (searchQuery){
+        const cat = getCategoryAny(e.categoryId, e.type || "expense");
+        const noteMatch = (e.note || "").toLowerCase().includes(searchQuery);
+        const catMatch = cat.name.toLowerCase().includes(searchQuery);
+        if (!noteMatch && !catMatch) return false;
+      }
+      if (filterCategoryId && e.categoryId !== filterCategoryId) return false;
+      if (filterMinAmount !== null && e.amount < filterMinAmount) return false;
+      if (filterMaxAmount !== null && e.amount > filterMaxAmount) return false;
+      return true;
+    });
+  } else if (dateFilterValue){
+    listSource = listSource.filter(e => e.date === dateFilterValue);
+  } else if (quickFilter === "week"){
+    listSource = listSource.filter(e => isThisWeek(e.date));
+  } else if (quickFilter === "lastweek"){
+    listSource = listSource.filter(e => isLastWeek(e.date));
+  } else if (quickFilter === "month"){
+    listSource = listSource.filter(e => isThisMonth(e.date));
+  } else if (quickFilter === "lastmonth"){
+    listSource = listSource.filter(e => isLastMonth(e.date));
+  } else {
+    listSource = listSource.slice(0, 8);
+  }
 
-if (hasSearchFilter){
-  listSource = listSource.filter(e => {
-    if (searchQuery){
-      const cat = getCategoryAny(e.categoryId, e.type || "expense");
-      const noteMatch = (e.note || "").toLowerCase().includes(searchQuery);
-      const catMatch = cat.name.toLowerCase().includes(searchQuery);
-      if (!noteMatch && !catMatch) return false;
-    }
-    if (filterCategoryId && e.categoryId !== filterCategoryId) return false;
-    if (filterMinAmount !== null && e.amount < filterMinAmount) return false;
-    if (filterMaxAmount !== null && e.amount > filterMaxAmount) return false;
-    return true;
-  });
-} else if (dateFilterValue){
-  listSource = listSource.filter(e => e.date === dateFilterValue);
-} else if (quickFilter === "week"){
-  listSource = listSource.filter(e => isThisWeek(e.date));
-} else if (quickFilter === "lastweek"){
-  listSource = listSource.filter(e => isLastWeek(e.date));
-} else if (quickFilter === "month"){
-  listSource = listSource.filter(e => isThisMonth(e.date));
-} else if (quickFilter === "lastmonth"){
-  listSource = listSource.filter(e => isLastMonth(e.date));
-} else {
-  listSource = listSource.slice(0, 8);
-}
-
-const list = document.getElementById("recentList");
-const filterActive = hasSearchFilter || dateFilterValue || quickFilter;
+  const list = document.getElementById("recentList");const filterActive = hasSearchFilter || dateFilterValue || quickFilter;
   const list = document.getElementById("recentList");
   const filterActive = dateFilterValue || quickFilter;
 
