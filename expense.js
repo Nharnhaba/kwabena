@@ -626,7 +626,7 @@ if (dateFilterValue){
 } else {
   listSource = listSource.slice(0, 8);
 }
-let listSource = [...expenses].sort((a,b) => new Date(b.date) - new Date(a.date));
+
 
 const hasSearchFilter = searchQuery || filterCategoryId || filterMinAmount !== null || filterMaxAmount !== null;
 
