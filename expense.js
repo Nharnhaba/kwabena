@@ -135,22 +135,19 @@ function isLastWeek(dateStr){
   const diffDays = (now - d) / (1000*60*60*24);
   return diffDays >= 7 && diffDays < 14;
 }
-function getRelativeDateLabel(entryDateStr) {
-  // entryDateStr should be a 'YYYY-MM-DD' or Date-parseable value
-  const entryDate = new Date(entryDateStr);
-  const today = new Date();
+function formatDateLabel(dateStr){
+  const d = new Date(dateStr), now = new Date();
 
-  // Zero out the time portion so we're comparing calendar days only
-  const entryDay = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
-  const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  // zero out time so we're comparing calendar days, not hours
+  const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const diffMs = todayDay - entryDay;
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const diff = Math.round((nowOnly - dOnly) / (1000*60*60*24));
 
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays > 1) return `${diffDays} days ago`;
-  return entryDate.toLocaleDateString(); // future-dated entries, fallback
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  if (diff > 1) return `${diff} days ago`;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); // future-dated entries only
 }
 function initials(name){
   return (name || "").trim().split(/\s+/).slice(0,2).map(w => w[0]?.toUpperCase() || "").join("") || "•";
