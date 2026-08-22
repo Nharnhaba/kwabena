@@ -125,29 +125,76 @@ function isThisMonth(dateStr){
   const d = new Date(dateStr), now = new Date();
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
-function isThisWeek(dateStr){
-  const d = new Date(dateStr), now = new Date();
-  const diffDays = (now - d) / (1000*60*60*24);
-  return diffDays >= 0 && diffDays < 7;
+
+function isLastMonth(dateStr){
+  const { start, end } = getLastMonthRange();
+  const d = new Date(dateStr);
+  return d >= start && d <= end;
 }
+
+function getMonthRange(offsetMonths = 0) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + offsetMonths;
+
+  const start = new Date(year, month, 1);
+  const end = new Date(year, month + 1, 0); // last day of that month
+  end.setHours(23, 59, 59, 999);
+
+  return { start, end };
+}
+
+function getThisMonthRange() { return getMonthRange(0); }
+function getLastMonthRange() { return getMonthRange(-1); }
+
+function getWeekStart(refDate, offsetWeeks = 0){
+  const day = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate());
+  const dayOfWeek = day.getDay(); // Sunday = 0 ... Saturday = 6
+  day.setDate(day.getDate() - dayOfWeek + offsetWeeks * 7);
+  day.setHours(0, 0, 0, 0);
+  return day;
+}
+
+function isThisWeek(dateStr){
+  const d = new Date(dateStr);
+  const start = getWeekStart(new Date(), 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return d >= start && d <= end;
+}
+
 function isLastWeek(dateStr){
-  const d = new Date(dateStr), now = new Date();
-  const diffDays = (now - d) / (1000*60*60*24);
-  return diffDays >= 7 && diffDays < 14;
+  const d = new Date(dateStr);
+  const start = getWeekStart(new Date(), -1);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return d >= start && d <= end;
 }
 function formatDateLabel(dateStr){
   const d = new Date(dateStr), now = new Date();
 
-  // zero out time so we're comparing calendar days, not hours
   const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const diff = Math.round((nowOnly - dOnly) / (1000*60*60*24));
+  const diffDays = Math.round((nowOnly - dOnly) / (1000*60*60*24));
 
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  if (diff > 1) return `${diff} days ago`;
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); // future-dated entries only
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+
+  const diffWeeks = Math.floor(diffDays / 7);
+  if (diffWeeks === 1) return "A week ago";
+  if (diffWeeks < 5) return `${diffWeeks} weeks ago`;
+
+  const diffMonths = (nowOnly.getFullYear() - dOnly.getFullYear()) * 12 + (nowOnly.getMonth() - dOnly.getMonth());
+  if (diffMonths === 1) return "A month ago";
+  if (diffMonths < 12) return `${diffMonths} months ago`;
+
+  const diffYears = Math.floor(diffMonths / 12);
+  if (diffYears === 1) return "A year ago";
+  return `${diffYears} years ago`;
 }
 function initials(name){
   return (name || "").trim().split(/\s+/).slice(0,2).map(w => w[0]?.toUpperCase() || "").join("") || "•";

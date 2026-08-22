@@ -131,11 +131,12 @@
         <button class="export-btn" onclick="exportCSV()">Export CSV</button>
       </div>
 
-      <div class="filter-chips">
-        <button class="chip-btn" id="chipWeek" onclick="setQuickFilter('week')">This week</button>
-        <button class="chip-btn" id="chipLastWeek" onclick="setQuickFilter('lastweek')">Last week</button>
-        <button class="chip-btn" id="chipMonth" onclick="setQuickFilter('month')">This month</button>
-      </div>
+     <div class="filter-chips">
+  <button class="chip-btn" id="chipWeek" onclick="setQuickFilter('week')">This week</button>
+  <button class="chip-btn" id="chipLastWeek" onclick="setQuickFilter('lastweek')">Last week</button>
+  <button class="chip-btn" id="chipMonth" onclick="setQuickFilter('month')">This month</button>
+  <button class="chip-btn" id="chipLastMonth" onclick="setQuickFilter('lastmonth')">Last month</button>
+</div>
 
       <div class="search-row">
         <input id="dateFilter" type="date" onchange="applyDateFilter()" />
