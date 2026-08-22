@@ -161,28 +161,25 @@
     </section>
 
     <!-- SCREEN 2 — ADD EXPENSE -->
-    <section id="screen-add" class="screen">
-      <h1 class="page-title">Add expense</h1>
-      <p class="page-sub">Log what you spent</p>
+<section id="screen-add" class="screen">
+  <h1 class="page-title">Add expense</h1>
+  <p class="page-sub">Log what you spent</p>
 
-      <div class="amount-input-wrap">
-        <div class="currency">GH₵</div>
-        <input id="amountInput" type="text" inputmode="decimal" placeholder="0.00" />
-      </div>
-      <div class="amount-row">
-  <input type="number" id="amountInput" placeholder="0.00" step="0.01">
-  <select id="currencyInput" onchange="toggleRateInput()">
-    <option value="GHS" selected>GH₵</option>
-    <option value="USD">USD</option>
-    <option value="GBP">GBP</option>
-    <option value="EUR">EUR</option>
-  </select>
-</div>
-<div id="rateRow" class="rate-row hidden">
-  <label>Exchange rate (1 <span id="rateCurrencyLabel"></span> = ? GH₵)</label>
-  <input type="number" id="rateInput" placeholder="e.g. 15.20" step="0.01">
-</div>
+  <div class="amount-input-wrap">
+    <div class="currency">GH₵</div>
+    <input id="amountInput" type="text" inputmode="decimal" placeholder="0.00" />
+    <select id="currencyInput" onchange="toggleRateInput()">
+      <option value="GHS" selected>GH₵</option>
+      <option value="USD">USD</option>
+      <option value="GBP">GBP</option>
+      <option value="EUR">EUR</option>
+    </select>
+  </div>
 
+  <div id="rateRow" class="rate-row hidden">
+    <label>Exchange rate (1 <span id="rateCurrencyLabel"></span> = ? GH₵)</label>
+    <input type="number" id="rateInput" placeholder="e.g. 15.20" step="0.01">
+  </div>
       <div class="toggle-row" style="margin-bottom:16px">
         <div class="toggle-opt type-expense active" id="toggleTypeExpense" onclick="setEntryType('expense')">Expense</div>
         <div class="toggle-opt type-income" id="toggleTypeIncome" onclick="setEntryType('income')">Income</div>

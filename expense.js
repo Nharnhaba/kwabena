@@ -1150,6 +1150,7 @@ function showScreen(name){
 
 async function enterApp(){
   budgets = await loadBudgetsForUser(currentUser.username);
+  populateCategoryFilter();
   renderDashboard();
   renderCategoryGrid();
   renderCategories();
