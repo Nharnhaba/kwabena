@@ -137,7 +137,13 @@ function isLastWeek(dateStr){
 }
 function formatDateLabel(dateStr){
   const d = new Date(dateStr), now = new Date();
-  const diff = Math.round((now - d) / (1000*60*60*24));
+
+  // zero out time so we're comparing calendar days, not hours
+  const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const diff = Math.round((nowOnly - dOnly) / (1000*60*60*24));
+
   if (diff === 0) return "Today";
   if (diff === 1) return "Yesterday";
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
