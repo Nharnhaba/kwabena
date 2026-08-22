@@ -478,18 +478,19 @@ function renderDashboard(){
     new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
   let listSource = [...expenses].sort((a,b) => new Date(b.date) - new Date(a.date));
-  if (dateFilterValue){
-    listSource = listSource.filter(e => e.date === dateFilterValue);
-  } else if (quickFilter === "week"){
-    listSource = listSource.filter(e => isThisWeek(e.date));
-  } else if (quickFilter === "lastweek"){
-    listSource = listSource.filter(e => isLastWeek(e.date));
-  } else if (quickFilter === "month"){
-    listSource = listSource.filter(e => isThisMonth(e.date));
-  } else {
-    listSource = listSource.slice(0, 8);
-  }
-
+if (dateFilterValue){
+  listSource = listSource.filter(e => e.date === dateFilterValue);
+} else if (quickFilter === "week"){
+  listSource = listSource.filter(e => isThisWeek(e.date));
+} else if (quickFilter === "lastweek"){
+  listSource = listSource.filter(e => isLastWeek(e.date));
+} else if (quickFilter === "month"){
+  listSource = listSource.filter(e => isThisMonth(e.date));
+} else if (quickFilter === "lastmonth"){
+  listSource = listSource.filter(e => isLastMonth(e.date));
+} else {
+  listSource = listSource.slice(0, 8);
+}
   const list = document.getElementById("recentList");
   const filterActive = dateFilterValue || quickFilter;
 
