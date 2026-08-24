@@ -103,66 +103,70 @@ async function updateUserInDB(user){
 async function saveUsername(){
   const errEl = document.getElementById("usernameChangeError");
   errEl.textContent = "";
-  const newUsername = document.getElementById("profileUsername").value.trim().toLowerCase();
+  const newDisplayUsername = document.getElementById("profileUsername").value.trim();
+  const newUsername = newDisplayUsername.toLowerCase();
   const oldUsername = currentUser.username;
 
   if (!newUsername){ errEl.textContent = "Username can't be empty."; return; }
-  if (newUsername === oldUsername) return;
-  if (!/^[a-z0-9_]{3,20}$/.test(newUsername)){
+  if (!/^[a-z0-9_]{3,20}$/i.test(newUsername)){
     errEl.textContent = "3-20 characters: letters, numbers, underscore only.";
     return;
   }
+  if (newUsername === oldUsername && newDisplayUsername === (currentUser.displayUsername || currentUser.username)) return;
 
   showConfirm(`Change username from "${oldUsername}" to "${newUsername}"? This updates all your data.`, async () => {
     try {
       const existing = await getUser(newUsername);
-      if (existing){ errEl.textContent = "That username is already taken."; return; }
+      if (existing && newUsername !== oldUsername){ errEl.textContent = "That username is already taken."; return; }
 
       const wasOwnHousehold = currentUser.householdId === oldUsername;
 
-      const updatedUser = { ...currentUser, username: newUsername };
+      const updatedUser = { ...currentUser, username: newUsername, displayUsername: newDisplayUsername };
       if (wasOwnHousehold) updatedUser.householdId = newUsername;
       await db.collection("users").doc(newUsername).set(updatedUser);
 
       const budgetsDoc = await db.collection("budgets").doc(oldUsername).get();
-      if (budgetsDoc.exists){
+      if (budgetsDoc.exists && newUsername !== oldUsername){
         await db.collection("budgets").doc(newUsername).set(budgetsDoc.data());
         await db.collection("budgets").doc(oldUsername).delete();
       }
 
-      const expSnap = await db.collection("expenses").where("username", "==", oldUsername).get();
-      const batch1 = db.batch();
-      expSnap.docs.forEach(d => {
-        const data = d.data();
-        const update = { username: newUsername };
-        if (wasOwnHousehold && data.householdId === oldUsername) update.householdId = newUsername;
-        batch1.update(d.ref, update);
-      });
-      await batch1.commit();
-
-      const recSnap = await db.collection("recurring").where("username", "==", oldUsername).get();
-      const batch2 = db.batch();
-      recSnap.docs.forEach(d => {
-        const data = d.data();
-        const update = { username: newUsername };
-        if (wasOwnHousehold && data.householdId === oldUsername) update.householdId = newUsername;
-        batch2.update(d.ref, update);
-      });
-      await batch2.commit();
-
-      if (wasOwnHousehold){
-        const membersSnap = await db.collection("users").where("householdId", "==", oldUsername).get();
-        const batch3 = db.batch();
-        membersSnap.docs.forEach(d => {
-          if (d.id !== oldUsername) batch3.update(d.ref, { householdId: newUsername });
+      if (newUsername !== oldUsername){
+        const expSnap = await db.collection("expenses").where("username", "==", oldUsername).get();
+        const batch1 = db.batch();
+        expSnap.docs.forEach(d => {
+          const data = d.data();
+          const update = { username: newUsername };
+          if (wasOwnHousehold && data.householdId === oldUsername) update.householdId = newUsername;
+          batch1.update(d.ref, update);
         });
-        await batch3.commit();
+        await batch1.commit();
+
+        const recSnap = await db.collection("recurring").where("username", "==", oldUsername).get();
+        const batch2 = db.batch();
+        recSnap.docs.forEach(d => {
+          const data = d.data();
+          const update = { username: newUsername };
+          if (wasOwnHousehold && data.householdId === oldUsername) update.householdId = newUsername;
+          batch2.update(d.ref, update);
+        });
+        await batch2.commit();
+
+        if (wasOwnHousehold){
+          const membersSnap = await db.collection("users").where("householdId", "==", oldUsername).get();
+          const batch3 = db.batch();
+          membersSnap.docs.forEach(d => {
+            if (d.id !== oldUsername) batch3.update(d.ref, { householdId: newUsername });
+          });
+          await batch3.commit();
+        }
+
+        await db.collection("users").doc(oldUsername).delete();
       }
 
-      await db.collection("users").doc(oldUsername).delete();
       currentUser = updatedUser;
       localStorage.setItem(SESSION_KEY, newUsername);
-      document.getElementById("dashGreeting").textContent = `Hi, ${currentUser.name || newUsername}`;
+      document.getElementById("dashGreeting").textContent = `Hi, ${newDisplayUsername}`;
       alert("Username updated.");
     } catch (err){
       console.error("Username change failed:", err);
@@ -427,7 +431,8 @@ async function loginUser(){
 async function registerUser(){
   const name = document.getElementById("regName").value.trim();
   const phone = document.getElementById("regPhone").value.trim();
-  const username = document.getElementById("regUsername").value.trim().toLowerCase();
+  const displayUsername = document.getElementById("regUsername").value.trim();
+  const username = displayUsername.toLowerCase();
   const password = document.getElementById("regPassword").value;
   const inviteCode = document.getElementById("regInviteCode")?.value.trim().toLowerCase();
   const errorEl = document.getElementById("regError");
@@ -455,7 +460,7 @@ async function registerUser(){
       return;
     }
 
-    let householdId = username; // default: own household
+    let householdId = username;
     if (inviteCode){
       const host = await getUser(inviteCode).catch(() => null);
       if (!host){
@@ -468,7 +473,7 @@ async function registerUser(){
     }
 
     const passwordHash = await hashPassword(password);
-    currentUser = { username, passwordHash, name, phone, householdId, createdAt: new Date().toISOString() };
+    currentUser = { username, displayUsername, passwordHash, name, phone, householdId, createdAt: new Date().toISOString() };
     await createUser(currentUser);
 
     expenses = await loadExpensesForHousehold(householdId);
@@ -539,7 +544,7 @@ function resetRegisterForm(){
 function renderProfileScreen(){
   document.getElementById("profileName").value = currentUser.name || "";
   document.getElementById("profilePhone").value = currentUser.phone || "";
-  document.getElementById("profileUsername").value = currentUser.username || "";
+  document.getElementById("profileUsername").value = currentUser.displayUsername || currentUser.username || "";
   document.getElementById("profileCurrentPassword").value = "";
   document.getElementById("profileNewPassword").value = "";
   document.getElementById("profileError").textContent = "";
@@ -624,7 +629,7 @@ async function processRecurringEntries(){
   await saveRecurringTemplatesToDB(recurringTemplates);
 }
 function renderDashboard(){
-  document.getElementById("dashGreeting").textContent = currentUser ? `Hi, ${currentUser.name || currentUser.username}` : "Sika";
+  document.getElementById("dashGreeting").textContent = currentUser ? `Hi, ${currentUser.displayUsername || currentUser.username}` : "Sika";
   document.getElementById("profileAvatar").textContent = usernameInitials(currentUser?.username);
 
   const monthEntries = expenses.filter(e => isThisMonth(e.date));
