@@ -25,7 +25,7 @@ let recurringTemplates = [];
 
 // Dashboard state
 let dateFilterValue = null;
-let quickFilter = null;
+let quickFilter = "week";
 let summaryMode = "month";
 let editingExpenseId = null;
 const SESSION_KEY = "sika-session";
@@ -87,6 +87,77 @@ async function updateUserInDB(user){
   return true;
 }
 
+async function saveUsername(){
+  const errEl = document.getElementById("usernameChangeError");
+  errEl.textContent = "";
+  const newUsername = document.getElementById("profileUsername").value.trim().toLowerCase();
+  const oldUsername = currentUser.username;
+
+  if (!newUsername){ errEl.textContent = "Username can't be empty."; return; }
+  if (newUsername === oldUsername) return;
+  if (!/^[a-z0-9_]{3,20}$/.test(newUsername)){
+    errEl.textContent = "3-20 characters: letters, numbers, underscore only.";
+    return;
+  }
+
+  showConfirm(`Change username from "${oldUsername}" to "${newUsername}"? This updates all your data.`, async () => {
+    try {
+      const existing = await getUser(newUsername);
+      if (existing){ errEl.textContent = "That username is already taken."; return; }
+
+      const wasOwnHousehold = currentUser.householdId === oldUsername;
+
+      const updatedUser = { ...currentUser, username: newUsername };
+      if (wasOwnHousehold) updatedUser.householdId = newUsername;
+      await db.collection("users").doc(newUsername).set(updatedUser);
+
+      const budgetsDoc = await db.collection("budgets").doc(oldUsername).get();
+      if (budgetsDoc.exists){
+        await db.collection("budgets").doc(newUsername).set(budgetsDoc.data());
+        await db.collection("budgets").doc(oldUsername).delete();
+      }
+
+      const expSnap = await db.collection("expenses").where("username", "==", oldUsername).get();
+      const batch1 = db.batch();
+      expSnap.docs.forEach(d => {
+        const data = d.data();
+        const update = { username: newUsername };
+        if (wasOwnHousehold && data.householdId === oldUsername) update.householdId = newUsername;
+        batch1.update(d.ref, update);
+      });
+      await batch1.commit();
+
+      const recSnap = await db.collection("recurring").where("username", "==", oldUsername).get();
+      const batch2 = db.batch();
+      recSnap.docs.forEach(d => {
+        const data = d.data();
+        const update = { username: newUsername };
+        if (wasOwnHousehold && data.householdId === oldUsername) update.householdId = newUsername;
+        batch2.update(d.ref, update);
+      });
+      await batch2.commit();
+
+      if (wasOwnHousehold){
+        const membersSnap = await db.collection("users").where("householdId", "==", oldUsername).get();
+        const batch3 = db.batch();
+        membersSnap.docs.forEach(d => {
+          if (d.id !== oldUsername) batch3.update(d.ref, { householdId: newUsername });
+        });
+        await batch3.commit();
+      }
+
+      await db.collection("users").doc(oldUsername).delete();
+      currentUser = updatedUser;
+      localStorage.setItem(SESSION_KEY, newUsername);
+      document.getElementById("dashGreeting").textContent = `Hi, ${newUsername}`;
+      alert("Username updated.");
+    } catch (err){
+      console.error("Username change failed:", err);
+      errEl.textContent = "Something went wrong. Check your connection and try again.";
+    }
+  });
+}
+
 async function loadExpensesForUser(username){
   try {
     const snapshot = await db.collection("expenses").where("username", "==", username).get();
@@ -138,6 +209,15 @@ async function updateRecurringInDB(template){
   } catch (err) {
     console.error("Failed to update recurring template:", err);
     alert("Couldn't update that recurring entry. Check your internet connection and try again.");
+  }
+}
+
+async function deleteRecurringFromDB(id){
+  try {
+    await db.collection("recurring").doc(String(id)).delete();
+  } catch (err) {
+    console.error("Failed to delete recurring template:", err);
+    alert("Couldn't delete that recurring entry. Check your internet connection.");
   }
 }
 
@@ -443,69 +523,6 @@ function resetRegisterForm(){
   document.getElementById("regError").textContent = "";
 }
 
-function exportAccount(){
-  const backup = {
-    app: "sika-backup",
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    user: currentUser,
-    expenses: expenses
-  };
-  const json = JSON.stringify(backup, null, 2);
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `sika-backup-${currentUser.username}-${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
-async function importAccountFile(event){
-  const file = event.target.files[0];
-  if (!file) return;
-  const errorEl = document.getElementById("importError");
-  if (errorEl) errorEl.textContent = "";
-
-  try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-
-    if (!data.user || !data.user.username || !Array.isArray(data.expenses)){
-      throw new Error("Invalid backup file");
-    }
-
-    const existing = await getUser(data.user.username).catch(() => null);
-    if (existing){
-      await updateUserInDB(data.user);
-    } else {
-      await createUser(data.user);
-    }
-
-    const db = await openDB();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction("expenses", "readwrite");
-      const store = tx.objectStore("expenses");
-      data.expenses.forEach(e => store.put(e));
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-
-    currentUser = data.user;
-    expenses = await loadExpensesForUser(data.user.username);
-    localStorage.setItem(SESSION_KEY, data.user.username);
-    enterApp();
-  } catch (err) {
-    console.error(err);
-    if (errorEl) errorEl.textContent = "Couldn't read that backup file.";
-    else alert("Couldn't read that backup file.");
-  } finally {
-    event.target.value = "";
-  }
-}
-
 function renderProfileScreen(){
   document.getElementById("profileName").value = currentUser.name || "";
   document.getElementById("profilePhone").value = currentUser.phone || "";
@@ -659,7 +676,7 @@ function renderDashboard(){
     const badgeClass = e.method === "momo" ? "badge-momo" : "badge-cash";
     const badgeLabel = e.method === "momo" ? "Mobile money" : "Cash";
     const sign = type === "income" ? "+" : "−";
-    const amountClass = type === "income" ? "ticket-amount income" : "ticket-amount";
+    const amountClass = type === "income" ? "ticket-amount income" : "ticket-amount expense";
     return `
       <div class="ticket">
         <div class="ticket-icon">${cat.emoji}</div>
@@ -698,63 +715,15 @@ function clearDateFilter(){
 }
 
 function setQuickFilter(mode){
-  quickFilter = (quickFilter === mode) ? null : mode;
+  quickFilter = mode; // always one selected — no toggle-off
   dateFilterValue = null;
   document.getElementById("dateFilter").value = "";
   document.getElementById("clearFilterBtn").classList.add("hidden");
   document.querySelectorAll(".chip-btn").forEach(b => b.classList.remove("active"));
   const chipIds = { week: "chipWeek", lastweek: "chipLastWeek", month: "chipMonth", lastmonth: "chipLastMonth" };
-  if (quickFilter && chipIds[quickFilter]){
-    document.getElementById(chipIds[quickFilter]).classList.add("active");
-  }
+  document.getElementById(chipIds[mode]).classList.add("active");
   renderDashboard();
 }
-function exportCSV(){
-  if (expenses.length === 0){
-    alert("No entries to export yet.");
-    return;
-  }
-  const header = ["Date", "Type", "Category", "Amount (GHS)", "Payment method", "Note"];
-  const rows = [...expenses]
-    .sort((a,b) => new Date(a.date) - new Date(b.date))
-    .map(e => {
-      const type = e.type || "expense";
-      return [
-        e.date,
-        type === "income" ? "Income" : "Expense",
-        getCategoryAny(e.categoryId, type).name,
-        e.amount.toFixed(2),
-        e.method === "momo" ? "Mobile money" : "Cash",
-        (e.note || "").replace(/"/g, '""')
-      ];
-    });
-
-  const csv = [header, ...rows].map(row => row.map(f => `"${f}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `sika-transactions-${currentUser.username}-${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
-function applyDateFilter(){
-  const value = document.getElementById("dateFilter").value;
-  dateFilterValue = value || null;
-  document.getElementById("clearFilterBtn").classList.toggle("hidden", !dateFilterValue);
-  renderDashboard();
-}
-
-function clearDateFilter(){
-  dateFilterValue = null;
-  document.getElementById("dateFilter").value = "";
-  document.getElementById("clearFilterBtn").classList.add("hidden");
-  renderDashboard();
-}
-
 function deleteExpense(id){
   showConfirm("Delete this expense?", async () => {
     expenses = expenses.filter(e => e.id !== id);
@@ -929,6 +898,37 @@ function renderCategories(){
   renderBreakdownInto("incomeBreakdown", monthEntries.filter(e => e.type === "income"), INCOME_CATEGORIES);
 }
 
+function renderRecurringScreen(){
+  const container = document.getElementById("recurringList");
+  if (!recurringTemplates.length){
+    container.innerHTML = `<p class="page-sub">No recurring entries yet. Turn on "Repeat" when adding an entry to create one.</p>`;
+    return;
+  }
+  container.innerHTML = recurringTemplates.map(t => {
+    const list = t.type === "income" ? INCOME_CATEGORIES : CATEGORIES;
+    const cat = list.find(c => c.id === t.categoryId);
+    const freqLabel = t.frequency === "weekly" ? "Weekly" : "Monthly";
+    return `
+      <div class="budget-card">
+        <div class="budget-card-top">
+          <span class="budget-card-emoji">${cat ? cat.emoji : "🔁"}</span>
+          <span class="budget-card-name">${cat ? cat.name : "Uncategorized"}</span>
+          <button class="secondary-btn" style="padding:6px 12px" onclick="deleteRecurringTemplate(${t.id})">Delete</button>
+        </div>
+        <div class="budget-status">${freqLabel} · ${formatMoney(t.amount)}${t.note ? " · " + t.note : ""} · next on ${t.nextDate}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function deleteRecurringTemplate(id){
+  showConfirm("Stop this recurring entry? Past entries it already created will stay.", async () => {
+    recurringTemplates = recurringTemplates.filter(t => t.id !== id);
+    await deleteRecurringFromDB(id);
+    renderRecurringScreen();
+  });
+}
+
 function renderBudgetsScreen(){
   const monthExpenses = expenses.filter(e => isThisMonth(e.date) && (e.type || "expense") === "expense");
   const spentByCategory = {};
@@ -956,7 +956,9 @@ function renderBudgetsScreen(){
             <span>₵</span>
             <input type="number" min="0" step="1" placeholder="0"
               value="${limit || ''}"
-              onchange="setBudget('${c.id}', this.value)" />
+              id="budgetInput-${c.id}" />
+            <button class="secondary-btn" style="width:auto; padding:7px 12px; font-size:12px"
+              onclick="setBudget('${c.id}', document.getElementById('budgetInput-${c.id}').value)">Set</button>
           </div>
         </div>
         ${limit > 0 ? `<div class="budget-progress-track"><div class="budget-progress-fill ${barClass}" style="width:${pct}%"></div></div>` : ''}
@@ -1075,14 +1077,16 @@ function renderSummary(){
 
   renderBreakdownInto("summaryBreakdown", expenseEntries, CATEGORIES);
   renderBreakdownInto("summaryIncomeBreakdown", incomeEntries, INCOME_CATEGORIES);
-  renderSummaryChart(expenseEntries, CATEGORIES);
+  renderSummaryChart("summaryChart", expenseEntries, CATEGORIES, "expense");
+  renderSummaryChart("summaryIncomeChart", incomeEntries, INCOME_CATEGORIES, "income");
 }
 
 let summaryChartInstance = null;
+let summaryIncomeChartInstance = null;
 
-function renderSummaryChart(expenseEntries, categories){
+function renderSummaryChart(canvasId, entries, categories, kind){
   const totals = {};
-  expenseEntries.forEach(e => {
+  entries.forEach(e => {
     totals[e.categoryId] = (totals[e.categoryId] || 0) + e.amount;
   });
 
@@ -1099,15 +1103,16 @@ function renderSummaryChart(expenseEntries, categories){
     }
   });
 
-  const ctx = document.getElementById("summaryChart").getContext("2d");
-
-  if (summaryChartInstance) summaryChartInstance.destroy();
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  const existing = kind === "income" ? summaryIncomeChartInstance : summaryChartInstance;
+  if (existing) existing.destroy();
 
   if (data.length === 0){
+    if (kind === "income") summaryIncomeChartInstance = null; else summaryChartInstance = null;
     return; // nothing to chart
   }
 
-  summaryChartInstance = new Chart(ctx, {
+  const chart = new Chart(ctx, {
     type: "doughnut",
     data: {
       labels,
@@ -1119,6 +1124,8 @@ function renderSummaryChart(expenseEntries, categories){
       }
     }
   });
+
+  if (kind === "income") summaryIncomeChartInstance = chart; else summaryChartInstance = chart;
 }
 
 function showScreen(name){
@@ -1142,6 +1149,7 @@ function showScreen(name){
     if (name === "register") resetRegisterForm();
     if (name === "summary") renderSummaryScreen();
     if (name === "budgets") renderBudgetsScreen();
+    if (name === "recurring") renderRecurringScreen();
   }
 
   if (name === "add" && !editingExpenseId) resetAddForm();
@@ -1151,6 +1159,7 @@ function showScreen(name){
 async function enterApp(){
   budgets = await loadBudgetsForUser(currentUser.username);
   populateCategoryFilter();
+  document.getElementById("chipWeek").classList.add("active");
   renderDashboard();
   renderCategoryGrid();
   renderCategories();
@@ -1159,12 +1168,17 @@ async function enterApp(){
 }
 
 async function init(){
+  loadTheme();
   const savedUsername = localStorage.getItem(SESSION_KEY);
   if (savedUsername){
     try {
       currentUser = await getUser(savedUsername);
       expenses = await loadExpensesForUser(savedUsername);
       enterApp();
+      const params = new URLSearchParams(window.location.search);
+      const action = params.get("action");
+      if (action === "add") showScreen("add");
+      if (action === "summary") showScreen("summary");
     } catch (err) {
       localStorage.removeItem(SESSION_KEY);
       showScreen("login");
@@ -1174,25 +1188,8 @@ async function init(){
   }
   document.getElementById("loadingOverlay").classList.add("hidden");
 }
-  const params = new URLSearchParams(window.location.search);
-  const action = params.get("action");
-  if (currentUser && action === "add") showScreen("add");
-  if (currentUser && action === "summary") showScreen("summary");
 
-  if ("launchQueue" in window){
-    window.launchQueue.setConsumer((launchParams) => {
-      if (launchParams.files && launchParams.files.length){
-        launchParams.files[0].getFile().then((file) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            document.getElementById("importFileInputLogin")?.dispatchEvent
-              ? null : null;
-          };
-        });
-      }
-    });
-  }
-  function toggleTheme(){
+function toggleTheme(){
   const isLight = document.body.classList.toggle("light-theme");
   localStorage.setItem("sika-theme", isLight ? "light" : "dark");
   document.getElementById("themeToggleBtn").textContent = isLight ? "☀️" : "🌙";

@@ -50,15 +50,9 @@ body.light-theme{
 body{
   margin:0;
   min-height:100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:
-    radial-gradient(circle at 15% 0%, #23255e 0%, transparent 55%),
-    var(--bg);
+  background: var(--bg);
   font-family: var(--font-body);
   color: var(--text-primary);
-  padding: 32px 16px;
 }
 
 #phone{
@@ -365,7 +359,7 @@ p.page-sub{
 .toggle-opt.active.momo{ background: var(--gold); color:#231b02; }
 .toggle-opt.active.cash{ background: var(--green); color:#04231a; }
 
-input[type=text], input[type=date], input[type=tel], input[type=password]{
+input[type=text], input[type=date], input[type=tel], input[type=password], input[type=number], select{
   width:100%;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -375,9 +369,29 @@ input[type=text], input[type=date], input[type=tel], input[type=password]{
   font-family: var(--font-body);
   font-size: 14px;
   outline:none;
+  appearance: none;
+  -webkit-appearance: none;
 }
 input[type=date]{ color-scheme: dark; }
-input[type=text]:focus, input[type=date]:focus, input[type=tel]:focus, input[type=password]:focus{ border-color: var(--border-strong); }
+body.light-theme input[type=date]{ color-scheme: light; }
+input[type=text]:focus, input[type=date]:focus, input[type=tel]:focus, input[type=password]:focus, input[type=number]:focus, select:focus{ border-color: var(--border-strong); }
+
+.filter-row{
+  display:flex;
+  gap:8px;
+  margin-bottom: 12px;
+}
+.filter-row select{
+  flex: 1.2;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23a3a5cf'><path d='M5.5 7.5l4.5 4.5 4.5-4.5z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  padding-right: 30px;
+}
+.filter-row input[type=number]{
+  flex: 1;
+}
 
 .save-btn{
   width:100%;
@@ -543,6 +557,24 @@ input:disabled{
 .modal-btn.confirm{ background: var(--coral); color:#2a0a02; }
 .hidden{ display:none; }
 .toggle-opt.type-income.active{ background: var(--green); color:#04231a; }
+.toggle-opt.type-expense.active{ background: var(--coral); color:#2a0a02; }
+.ticket-amount.expense{ color: var(--coral); }
+#themeToggleBtn{
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 60;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .balance-card .total-amount{ color: var(--gold); }
 .ticket-amount.income{ color: var(--green); }
 

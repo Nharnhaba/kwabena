@@ -49,9 +49,6 @@
       <div class="reg-error" id="loginError"></div>
 
       <p class="auth-link" onclick="showScreen('register')">New here? <span>Create an account</span></p>
-      <input type="file" id="importFileInputLogin" accept="application/json" style="display:none" onchange="importAccountFile(event)" />
-      <p class="auth-link" onclick="document.getElementById('importFileInputLogin').click()">Have a backup file? <span>Import account</span></p>
-      <div class="reg-error" id="importError"></div>
     </section>
 
     <!-- SCREEN 0b — REGISTER -->
@@ -130,10 +127,7 @@
       </div>
       <button class="secondary-btn" onclick="showScreen('summary')" style="margin-bottom:20px">📊 Monthly / yearly summary</button>
 
-      <div class="section-row">
-        <div class="section-label" style="margin:0">Recent expenses</div>
-        <button class="export-btn" onclick="exportCSV()">Export CSV</button>
-      </div>
+      <div class="section-label" style="margin:22px 0 12px">Recent expenses</div>
 
       <div class="search-filter-bar">
   <input type="text" id="searchInput" placeholder="Search by note or category…" oninput="applySearch()">
@@ -245,7 +239,11 @@
       </div>
       <div class="reg-field">
         <div class="field-label">Username</div>
-        <input id="profileUsername" type="text" disabled />
+        <div style="display:flex; gap:8px;">
+          <input id="profileUsername" type="text" autocapitalize="none" />
+          <button class="secondary-btn" style="width:auto; padding:0 16px" onclick="saveUsername()">Save</button>
+        </div>
+        <div class="reg-error" id="usernameChangeError"></div>
       </div>
 
       <div class="section-label">Change password</div>
@@ -268,9 +266,17 @@
       <div class="reg-error" id="profileError"></div>
       <div class="reg-error" id="profileSuccess" style="color:var(--green)"></div>
 
-      <div class="section-label">Backup & transfer</div>
-      <p class="page-sub" style="margin-bottom:12px">Download your account to move it to another device.</p>
-      <button class="secondary-btn" onclick="exportAccount()">Export account</button>
+      <div class="section-label">Recurring entries</div>
+      <p class="page-sub" style="margin-bottom:12px">Manage entries that repeat automatically.</p>
+      <button class="secondary-btn" onclick="showScreen('recurring')">Manage recurring entries</button>
+    </section>
+
+    <!-- SCREEN 7 — RECURRING TEMPLATES -->
+    <section id="screen-recurring" class="screen">
+      <p class="back-link" onclick="showScreen('profile')">‹ Back</p>
+      <h1 class="page-title">Recurring entries</h1>
+      <p class="page-sub">Stop an entry from repeating by removing it here.</p>
+      <div id="recurringList"></div>
     </section>
 
     <!-- SCREEN 5 — SUMMARY -->
@@ -309,8 +315,8 @@
 
       <div class="section-label">Income by source</div>
       <div id="summaryIncomeBreakdown"></div>
-      <div class="section-label">By category</div>
-      <div id="summaryBreakdown"></div>
+
+      <canvas id="summaryIncomeChart" height="220"></canvas>
     </section>
 
     <!-- SCREEN 6 — BUDGETS -->
