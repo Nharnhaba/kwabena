@@ -410,10 +410,13 @@ async function loginUser(){
 
   try {
     const user = await getUser(username);
+    if (!user) throw new Error("Incorrect username or password.");
+
     const hash = await hashPassword(password);
-    if (hash !== user.passwordHash) throw new Error("Wrong password");
+    if (hash !== user.passwordHash) throw new Error("Incorrect username or password.");
 
     currentUser = user;
+    if (!currentUser.displayUsername) currentUser.displayUsername = username;
     const householdId = currentUser.householdId || currentUser.username;
     expenses = await loadExpensesForHousehold(householdId);
     recurringTemplates = await loadRecurringForUser(username);
