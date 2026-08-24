@@ -33,6 +33,19 @@ let searchQuery = "";
 let filterCategoryId = "";
 let filterMinAmount = null;
 let filterMaxAmount = null;
+let pendingUpdateReg = null;
+
+function showUpdateBanner(reg){
+  pendingUpdateReg = reg;
+  document.getElementById("updateBanner").classList.remove("hidden");
+}
+
+function applyUpdate(){
+  if (pendingUpdateReg && pendingUpdateReg.waiting){
+    pendingUpdateReg.waiting.postMessage("skipWaiting");
+  }
+  document.getElementById("updateBanner").classList.add("hidden");
+}
 
 function applySearch(){
   searchQuery = document.getElementById("searchInput").value.trim().toLowerCase();

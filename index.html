@@ -331,6 +331,11 @@
 
   <button class="fab" id="fabBtn" onclick="startNewExpense()" aria-label="Add expense">+</button>
 
+    <div id="updateBanner" class="update-banner hidden">
+    <span>A new version is ready.</span>
+    <button onclick="applyUpdate()">Refresh</button>
+  </div>
+
   <nav id="tabbar">
     <button class="tab-btn active" data-tab="dashboard" onclick="showScreen('dashboard')">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V9.5Z"/></svg>
@@ -360,8 +365,24 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="expense.js">
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js");
+    if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").then((reg) => {
+      reg.addEventListener("updatefound", () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener("statechange", () => {
+          if (newWorker.state === "installed" && navigator.serviceWorker.controller){
+            showUpdateBanner(reg);
+          }
+        });
+      });
+    });
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
   }
 </script>
 </body>
