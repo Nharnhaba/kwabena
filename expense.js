@@ -403,6 +403,7 @@ async function loginUser(){
     errorEl.textContent = "Enter your username and password.";
     return;
   }
+  
 
   errorEl.textContent = "";
   btn.disabled = true;
