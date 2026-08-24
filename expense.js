@@ -162,7 +162,7 @@ async function saveUsername(){
       await db.collection("users").doc(oldUsername).delete();
       currentUser = updatedUser;
       localStorage.setItem(SESSION_KEY, newUsername);
-      document.getElementById("dashGreeting").textContent = `Hi, ${newUsername}`;
+      document.getElementById("dashGreeting").textContent = `Hi, ${currentUser.name || newUsername}`;
       alert("Username updated.");
     } catch (err){
       console.error("Username change failed:", err);
@@ -624,7 +624,7 @@ async function processRecurringEntries(){
   await saveRecurringTemplatesToDB(recurringTemplates);
 }
 function renderDashboard(){
-  document.getElementById("dashGreeting").textContent = currentUser ? `Hi, ${currentUser.username}` : "Sika";
+  document.getElementById("dashGreeting").textContent = currentUser ? `Hi, ${currentUser.name || currentUser.username}` : "Sika";
   document.getElementById("profileAvatar").textContent = usernameInitials(currentUser?.username);
 
   const monthEntries = expenses.filter(e => isThisMonth(e.date));
