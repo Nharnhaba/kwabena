@@ -1143,8 +1143,8 @@ function renderSummaryChart(canvasId, entries, categories, kind){
       datasets: [{ data, backgroundColor: colors, borderWidth: 0 }]
     },
     options: {
-      plugins: {
-        legend: { position: "bottom", labels: { color: "#fff", boxWidth: 12, font: { size: 11 } } }
+          plugins: {
+        legend: { position: "bottom", labels: { color: getComputedStyle(document.body).getPropertyValue("--text-primary").trim(), boxWidth: 12, font: { size: 11 } } }
       }
     }
   });
@@ -1221,6 +1221,9 @@ function toggleTheme(){
   const isLight = document.body.classList.toggle("light-theme");
   localStorage.setItem("sika-theme", isLight ? "light" : "dark");
   document.getElementById("themeToggleBtn").textContent = isLight ? "☀️" : "🌙";
+  if (document.getElementById("screen-summary")?.classList.contains("active")){
+    renderSummary();
+  }
 }
 
 function loadTheme(){

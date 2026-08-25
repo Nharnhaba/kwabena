@@ -368,7 +368,7 @@
 <script src="expense.js"></script>
 <script>
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").then((reg) => {
+      navigator.serviceWorker.register("sw.js").then((reg) => {
       console.log("SW registered:", reg.scope, reg.active ? "active" : reg.installing ? "installing" : reg.waiting ? "waiting" : "unknown");
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
@@ -377,6 +377,10 @@
             showUpdateBanner(reg);
           }
         });
+      });
+      setInterval(() => reg.update(), 60 * 1000);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") reg.update();
       });
     }).catch((err) => {
       console.error("SW registration FAILED:", err);
