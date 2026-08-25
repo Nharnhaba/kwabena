@@ -780,6 +780,9 @@ async function processRecurringEntries(){
         note: template.note || "",
         date: template.nextDate,
         type: template.type || "expense",
+        isRecurring: true,
+        frequency: template.frequency,
+        recurringId: template.id,
       };
       expenses.push(newExpense);
       await addExpenseToDB(newExpense);
@@ -979,9 +982,31 @@ function editExpense(id){
   renderCategoryGrid();
   setPaymentMethod(exp.method);
 
-  // Set recurring state
-  const isRec = exp.isRecurring || false;
-  const freq = exp.frequency || "monthly";
+  // Set recurring state with fallback discovery for older records
+  let isRec = exp.isRecurring || false;
+  let freq = exp.frequency || "monthly";
+  let recId = exp.recurringId || null;
+
+  if (!isRec) {
+    // Attempt to match this expense with a template in recurringTemplates
+    const matchedTemplate = recurringTemplates.find(t => 
+      String(t.id) === String(exp.id + 1) || 
+      (t.categoryId === exp.categoryId && 
+       Math.abs(t.amount - exp.amount) < 0.01 && 
+       (t.type || "expense") === (exp.type || "expense") &&
+       (t.note || "") === (exp.note || ""))
+    );
+    if (matchedTemplate) {
+      isRec = true;
+      freq = matchedTemplate.frequency || "monthly";
+      recId = matchedTemplate.id;
+      // Link them in memory
+      exp.isRecurring = true;
+      exp.frequency = freq;
+      exp.recurringId = recId;
+    }
+  }
+
   document.getElementById("recurringCheckbox").checked = isRec;
   const freqEl = document.getElementById("recurringFrequency");
   freqEl.value = freq;

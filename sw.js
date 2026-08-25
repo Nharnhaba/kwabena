@@ -1,4 +1,4 @@
-const CACHE_NAME = "sika-cache-v32";
+const CACHE_NAME = "sika-cache-v33";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,7 +7,7 @@ const ASSETS = [
   "./firebase-config.js",
   "./manifest.json",
   "./icon-192.png",
-  "./icon-512.png" 
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", (event) => {
