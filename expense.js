@@ -1196,7 +1196,11 @@ async function init(){
   const savedUsername = localStorage.getItem(SESSION_KEY);
   if (savedUsername){
     try {
-      currentUser = await getUser(savedUsername);
+           currentUser = await getUser(savedUsername);
+      if (!currentUser.displayUsername){
+        currentUser.displayUsername = savedUsername;
+        await db.collection("users").doc(savedUsername).update({ displayUsername: savedUsername });
+      }
       expenses = await loadExpensesForUser(savedUsername);
       enterApp();
       const params = new URLSearchParams(window.location.search);
