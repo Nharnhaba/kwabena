@@ -1201,7 +1201,8 @@ async function init(){
         currentUser.displayUsername = savedUsername;
         await db.collection("users").doc(savedUsername).update({ displayUsername: savedUsername });
       }
-      expenses = await loadExpensesForUser(savedUsername);
+            expenses = await loadExpensesForUser(savedUsername);
+      recurringTemplates = await loadRecurringForUser(savedUsername);
       enterApp();
       const params = new URLSearchParams(window.location.search);
       const action = params.get("action");

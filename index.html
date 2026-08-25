@@ -378,12 +378,19 @@
           }
         });
       });
-      setInterval(() => reg.update(), 60 * 1000);
+            setInterval(() => reg.update(), 60 * 1000);
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") reg.update();
       });
     }).catch((err) => {
       console.error("SW registration FAILED:", err);
+    });
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
     });
   }
 </script>
