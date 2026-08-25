@@ -43,8 +43,29 @@ function showUpdateBanner(reg){
 function applyUpdate(){
   if (pendingUpdateReg && pendingUpdateReg.waiting){
     pendingUpdateReg.waiting.postMessage("skipWaiting");
+  } else {
+    window.location.reload();
   }
   document.getElementById("updateBanner").classList.add("hidden");
+}
+
+async function checkForNewCode(){
+  try {
+    const res = await fetch("./index.html?_cb=" + Date.now());
+    if (!res.ok) return;
+    const html = await res.text();
+    const match = html.match(/<meta\s+name=["']app-version["']\s+content=["']([^"']+)["']/i);
+    if (match && match[1]) {
+      const serverVersion = match[1];
+      const localMeta = document.querySelector('meta[name="app-version"]');
+      const localVersion = localMeta ? localMeta.getAttribute("content") : null;
+      if (localVersion && serverVersion !== localVersion) {
+        showUpdateBanner(null);
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to check for new code version:", e);
+  }
 }
 
 function applySearch(){
@@ -957,6 +978,19 @@ function editExpense(id){
   document.getElementById("categoryFieldLabel").textContent = selectedType === "income" ? "Source" : "Category";
   renderCategoryGrid();
   setPaymentMethod(exp.method);
+
+  // Set recurring state
+  const isRec = exp.isRecurring || false;
+  const freq = exp.frequency || "monthly";
+  document.getElementById("recurringCheckbox").checked = isRec;
+  const freqEl = document.getElementById("recurringFrequency");
+  freqEl.value = freq;
+  if (isRec) {
+    freqEl.classList.remove("hidden");
+  } else {
+    freqEl.classList.add("hidden");
+  }
+
   document.querySelector("#screen-add .page-title").textContent = "Edit entry";
   document.getElementById("saveBtn").textContent = "Save changes";
   showScreen("add");
@@ -990,7 +1024,68 @@ async function saveExpense(){
 
   if (wasEditing){
     const idx = expenses.findIndex(e => e.id === editingExpenseId);
-    const updatedExpense = { ...expenses[idx], amount, amountGHS, currency, rate, categoryId: selectedCategoryId, method: selectedMethod, note, date, type: selectedType };
+    const existingExpense = expenses[idx];
+    let templateId = existingExpense.recurringId;
+
+    if (isRecurring) {
+      let template = null;
+      if (templateId) {
+        template = recurringTemplates.find(t => String(t.id) === String(templateId));
+      }
+      if (!templateId) {
+        templateId = Date.now() + 1;
+      }
+      const updatedTemplate = {
+        id: templateId,
+        username: currentUser.username,
+        householdId,
+        amount,
+        amountGHS,
+        currency,
+        rate,
+        categoryId: selectedCategoryId,
+        method: selectedMethod,
+        note: note || "",
+        type: selectedType,
+        frequency,
+        nextDate: template ? template.nextDate : getNextOccurrence(date, frequency),
+      };
+
+      if (template) {
+        const tIdx = recurringTemplates.findIndex(t => String(t.id) === String(templateId));
+        if (tIdx > -1) {
+          recurringTemplates[tIdx] = updatedTemplate;
+        } else {
+          recurringTemplates.push(updatedTemplate);
+        }
+        await updateRecurringInDB(updatedTemplate);
+      } else {
+        recurringTemplates.push(updatedTemplate);
+        await addRecurringToDB(updatedTemplate);
+      }
+    } else {
+      if (existingExpense.isRecurring && templateId) {
+        recurringTemplates = recurringTemplates.filter(t => String(t.id) !== String(templateId));
+        await deleteRecurringFromDB(templateId);
+      }
+      templateId = null;
+    }
+
+    const updatedExpense = {
+      ...existingExpense,
+      amount,
+      amountGHS,
+      currency,
+      rate,
+      categoryId: selectedCategoryId,
+      method: selectedMethod,
+      note,
+      date,
+      type: selectedType,
+      isRecurring,
+      frequency: isRecurring ? frequency : null,
+      recurringId: templateId
+    };
     expenses[idx] = updatedExpense;
     await updateExpenseInDB(updatedExpense);
   } else {
@@ -1007,14 +1102,15 @@ async function saveExpense(){
       note,
       date,
       type: selectedType,
+      isRecurring,
+      frequency: isRecurring ? frequency : null,
+      recurringId: null
     };
-    expenses.push(newExpense);
-    await addExpenseToDB(newExpense);
-    if (selectedType === "expense") checkBudgetAlert(selectedCategoryId);
 
     if (isRecurring){
+      const templateId = Date.now() + 1;
       const template = {
-        id: Date.now() + 1,
+        id: templateId,
         username: currentUser.username,
         householdId,
         amount,
@@ -1028,9 +1124,13 @@ async function saveExpense(){
         frequency,
         nextDate: getNextOccurrence(date, frequency),
       };
+      newExpense.recurringId = templateId;
       recurringTemplates.push(template);
       await addRecurringToDB(template);
     }
+    expenses.push(newExpense);
+    await addExpenseToDB(newExpense);
+    if (selectedType === "expense") checkBudgetAlert(selectedCategoryId);
   }
 
   btn.disabled = false;
@@ -1049,7 +1149,8 @@ function toggleRecurringOptions(){
 function getNextOccurrence(fromDateStr, frequency){
   const parts = normalizeDateStr(fromDateStr).split("-").map(Number);
   const d = new Date(parts[0], parts[1] - 1, parts[2]);
-  if (frequency === "weekly") d.setDate(d.getDate() + 7);
+  if (frequency === "daily") d.setDate(d.getDate() + 1);
+  else if (frequency === "weekly") d.setDate(d.getDate() + 7);
   else d.setMonth(d.getMonth() + 1);
   return toISODate(d);
 }
@@ -1070,7 +1171,7 @@ function renderRecurringScreen(){
   try {
     container.innerHTML = templates.map(t => {
       const cat = getCategoryAny(t.categoryId, t.type || "expense");
-      const freqLabel = t.frequency === "weekly" ? "Weekly" : "Monthly";
+      const freqLabel = t.frequency === "daily" ? "Daily" : (t.frequency === "weekly" ? "Weekly" : "Monthly");
       const next = normalizeDateStr(t.nextDate);
       const note = t.note ? " · " + String(t.note).replace(/</g, "&lt;") : "";
       const idAttr = String(t.id).replace(/'/g, "");

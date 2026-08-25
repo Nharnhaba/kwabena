@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Sika — Expense Tracker</title>
+<meta name="app-version" content="1.0.0" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -200,6 +201,7 @@
     Make this recurring
   </label>
   <select id="recurringFrequency" class="hidden">
+    <option value="daily">Every day</option>
     <option value="weekly">Every week</option>
     <option value="monthly" selected>Every month</option>
   </select>
@@ -343,7 +345,7 @@
 
     <div id="updateBanner" class="update-banner hidden">
     <span>A new version is ready.</span>
-    <button onclick="applyUpdate()">Refresh</button>
+    <button onclick="applyUpdate()">Update</button>
   </div>
 
   <nav id="tabbar">
@@ -391,10 +393,19 @@
           }
         });
       });
-            setInterval(() => reg.update(), 60 * 1000);
+      setInterval(() => {
+        reg.update();
+        if (typeof checkForNewCode === "function") checkForNewCode();
+      }, 60 * 1000);
       document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") reg.update();
+        if (document.visibilityState === "visible") {
+          reg.update();
+          if (typeof checkForNewCode === "function") checkForNewCode();
+        }
       });
+      setTimeout(() => {
+        if (typeof checkForNewCode === "function") checkForNewCode();
+      }, 2000);
     }).catch((err) => {
       console.error("SW registration FAILED:", err);
     });
