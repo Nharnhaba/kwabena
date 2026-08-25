@@ -266,6 +266,20 @@
       <div class="reg-error" id="profileError"></div>
       <div class="reg-error" id="profileSuccess" style="color:var(--green)"></div>
 
+      <div class="danger-zone">
+        <div class="section-label">Danger zone</div>
+        <p class="page-sub" style="margin-bottom:12px">This permanently deletes your account and your expenses. Household members keep their own accounts.</p>
+        <div class="reg-field">
+          <div class="field-label" style="margin-top:0">Password</div>
+          <div class="password-wrap">
+            <input id="profileDeletePassword" type="password" placeholder="Enter your password to confirm" />
+            <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('profileDeletePassword', this)">👁</button>
+          </div>
+        </div>
+        <button class="danger-btn" id="profileDeleteBtn" onclick="confirmDeleteAccount()">Delete account</button>
+        <div class="reg-error" id="profileDeleteError"></div>
+      </div>
+
     </section>
 
     <!-- SCREEN 7 — RECURRING TEMPLATES -->

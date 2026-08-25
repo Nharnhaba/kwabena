@@ -100,6 +100,15 @@ async function updateUserInDB(user){
   return true;
 }
 
+async function deleteDocsInBatches(docs){
+  const chunkSize = 450;
+  for (let i = 0; i < docs.length; i += chunkSize){
+    const batch = db.batch();
+    docs.slice(i, i + chunkSize).forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
 async function saveUsername(){
   const errEl = document.getElementById("usernameChangeError");
   errEl.textContent = "";
@@ -553,8 +562,63 @@ function renderProfileScreen(){
   document.getElementById("profileUsername").value = currentUser.displayUsername || currentUser.username || "";
   document.getElementById("profileCurrentPassword").value = "";
   document.getElementById("profileNewPassword").value = "";
+  document.getElementById("profileDeletePassword").value = "";
   document.getElementById("profileError").textContent = "";
   document.getElementById("profileSuccess").textContent = "";
+  document.getElementById("profileDeleteError").textContent = "";
+}
+
+async function confirmDeleteAccount(){
+  const password = document.getElementById("profileDeletePassword").value;
+  const errorEl = document.getElementById("profileDeleteError");
+  errorEl.textContent = "";
+
+  if (!currentUser){
+    errorEl.textContent = "You're not logged in.";
+    return;
+  }
+  if (!password){
+    errorEl.textContent = "Enter your password to delete your account.";
+    return;
+  }
+
+  const hash = await hashPassword(password);
+  if (hash !== currentUser.passwordHash){
+    errorEl.textContent = "Password is incorrect.";
+    return;
+  }
+
+  showConfirm("Delete your account forever? Your expenses, budgets, and repeating entries will be removed. This cannot be undone.", () => {
+    deleteCurrentAccount();
+  });
+}
+
+async function deleteCurrentAccount(){
+  const errorEl = document.getElementById("profileDeleteError");
+  const btn = document.getElementById("profileDeleteBtn");
+  const username = currentUser?.username;
+  if (!username) return;
+
+  errorEl.textContent = "";
+  btn.disabled = true;
+  btn.textContent = "Deleting…";
+
+  try {
+    const [expSnap, recSnap] = await Promise.all([
+      db.collection("expenses").where("username", "==", username).get(),
+      db.collection("recurring").where("username", "==", username).get()
+    ]);
+    await deleteDocsInBatches(expSnap.docs);
+    await deleteDocsInBatches(recSnap.docs);
+    await db.collection("budgets").doc(username).delete();
+    await db.collection("users").doc(username).delete();
+    logoutUser();
+  } catch (err) {
+    console.error("Account delete failed:", err);
+    errorEl.textContent = "Couldn't delete your account. Check your connection and try again.";
+    btn.disabled = false;
+    btn.textContent = "Delete account";
+  }
 }
 
 async function saveProfileChanges(){
