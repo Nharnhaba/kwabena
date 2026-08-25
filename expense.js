@@ -429,6 +429,26 @@ async function saveBudgetsForUser(username, budgetData){
   }
 }
 
+async function promptSetDailyBudget(event) {
+  if (event) event.stopPropagation(); // prevent card click triggers
+  const current = budgets._dailyLimit || 0;
+  const val = prompt("Enter your desired daily spending limit (₵):", current > 0 ? current : "");
+  if (val === null) return; // user cancelled
+  
+  const parsed = parseFloat(val);
+  if (val.trim() === "" || isNaN(parsed) || parsed <= 0) {
+    // Clear custom daily budget
+    delete budgets._dailyLimit;
+    alert("Custom daily budget cleared. Divides monthly category budget instead.");
+  } else {
+    budgets._dailyLimit = parsed;
+    alert(`Custom daily budget set to ₵${parsed.toFixed(2)}.`);
+  }
+  
+  await saveBudgetsForUser(currentUser.username, budgets);
+  renderDashboard();
+}
+
 function toggleRateInput(){
   const currency = document.getElementById("currencyInput").value;
   const rateRow = document.getElementById("rateRow");
@@ -715,6 +735,47 @@ function renderProfileScreen(){
   document.getElementById("profileError").textContent = "";
   document.getElementById("profileSuccess").textContent = "";
   document.getElementById("profileDeleteError").textContent = "";
+  updateNotificationButtonUI();
+}
+
+function updateNotificationButtonUI() {
+  const btn = document.getElementById("requestNotifyBtn");
+  if (!btn) return;
+  if (!("Notification" in window)) {
+    btn.textContent = "Unsupported";
+    btn.disabled = true;
+    return;
+  }
+  if (Notification.permission === "granted") {
+    btn.textContent = "Enabled ✓";
+    btn.style.color = "var(--green)";
+    btn.style.borderColor = "var(--green)";
+    btn.disabled = true;
+  } else if (Notification.permission === "denied") {
+    btn.textContent = "Blocked";
+    btn.style.color = "var(--coral)";
+    btn.style.borderColor = "var(--coral)";
+    btn.disabled = false;
+  } else {
+    btn.textContent = "Enable";
+    btn.disabled = false;
+  }
+}
+
+async function requestNotificationPermissionUser() {
+  if (!("Notification" in window)) {
+    alert("System notifications are not supported by this browser.");
+    return;
+  }
+  const permission = await Notification.requestPermission();
+  updateNotificationButtonUI();
+  if (permission === "granted") {
+    showBudgetToast("System notifications enabled successfully!", "ok");
+    // Trigger a test local PWA notification to verify skipping wait SkipWaiting or standard
+    showUpdateBanner(null);
+  } else {
+    alert("Permission denied. You can enable notifications in your browser/app settings.");
+  }
 }
 
 async function confirmDeleteAccount(){
@@ -930,20 +991,30 @@ function renderDashboard(){
     new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
   // Calculate Daily Budget Ring
-  const totalMonthlyBudget = Object.values(budgets).reduce((sum, val) => sum + parseFloat(val || 0), 0);
-  const todayDate = new Date();
-  const totalDaysInMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
-  const remainingDays = totalDaysInMonth - todayDate.getDate() + 1;
+  const customDailyLimit = parseFloat(budgets._dailyLimit || 0);
+  let dailyLimit = 0;
+  
+  if (customDailyLimit > 0) {
+    dailyLimit = customDailyLimit;
+  } else {
+    // Exclude special keys like _dailyLimit from monthly sum
+    const totalMonthlyBudget = Object.keys(budgets)
+      .filter(k => k !== "_dailyLimit")
+      .reduce((sum, k) => sum + parseFloat(budgets[k] || 0), 0);
+    const todayDate = new Date();
+    const totalDaysInMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
+    const remainingDays = totalDaysInMonth - todayDate.getDate() + 1;
+    
+    // Monthly expenses before today
+    const monthExpensesBeforeToday = expenses.filter(e => {
+      if (!isThisMonth(e.date) || (e.type || "expense") !== "expense") return false;
+      const expDate = new Date(e.date);
+      return expDate.getDate() < todayDate.getDate();
+    }).reduce((sum, e) => sum + e.amount, 0);
 
-  // Monthly expenses before today
-  const monthExpensesBeforeToday = expenses.filter(e => {
-    if (!isThisMonth(e.date) || (e.type || "expense") !== "expense") return false;
-    const expDate = new Date(e.date);
-    return expDate.getDate() < todayDate.getDate();
-  }).reduce((sum, e) => sum + e.amount, 0);
-
-  const remainingBudget = Math.max(0, totalMonthlyBudget - monthExpensesBeforeToday);
-  const dailyLimit = remainingDays > 0 && totalMonthlyBudget > 0 ? (remainingBudget / remainingDays) : 0;
+    const remainingBudget = Math.max(0, totalMonthlyBudget - monthExpensesBeforeToday);
+    dailyLimit = remainingDays > 0 && totalMonthlyBudget > 0 ? (remainingBudget / remainingDays) : 0;
+  }
 
   const spentToday = expenses.filter(e => {
     return isToday(e.date) && (e.type || "expense") === "expense";
@@ -956,7 +1027,9 @@ function renderDashboard(){
   const dailyBudgetProgressCircle = document.getElementById("dailyBudgetProgressCircle");
   const dailyBudgetPercentageText = document.getElementById("dailyBudgetPercentageText");
 
-  if (totalMonthlyBudget > 0) {
+  const hasBudgetSet = (customDailyLimit > 0) || Object.keys(budgets).some(k => k !== "_dailyLimit" && parseFloat(budgets[k] || 0) > 0);
+
+  if (hasBudgetSet) {
     dailyLimitAmountEl.textContent = `${formatMoney(leftToday)} left today`;
     dailyLimitSpentEl.textContent = `Spent today: ${formatMoney(spentToday)} of ${formatMoney(dailyLimit)}`;
     const pct = dailyLimit > 0 ? Math.min(100, Math.round((spentToday / dailyLimit) * 100)) : (spentToday > 0 ? 100 : 0);
@@ -972,7 +1045,7 @@ function renderDashboard(){
     }
   } else {
     dailyLimitAmountEl.textContent = "No budget set";
-    dailyLimitSpentEl.textContent = "Set budget in Categories > Set budgets";
+    dailyLimitSpentEl.textContent = "Set budget inside Set button or category budgets";
     dailyBudgetPercentageText.textContent = "0%";
     dailyBudgetProgressCircle.style.strokeDashoffset = 157;
     dailyBudgetProgressCircle.setAttribute("stroke", "var(--border)");
@@ -1220,7 +1293,7 @@ function cancelEditExpense(){
 
 let voiceRecognition = null;
 
-function startVoiceInput() {
+async function startVoiceInput() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     alert("Voice recognition is not supported in this browser. Please try Google Chrome.");
@@ -1230,6 +1303,15 @@ function startVoiceInput() {
   const voiceBtn = document.getElementById("voiceBtn");
   if (voiceRecognition) {
     voiceRecognition.stop();
+    return;
+  }
+  
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(track => track.stop());
+  } catch (err) {
+    console.warn("getUserMedia mic permission prompt failed:", err);
+    alert("Microphone access denied. If you are in Standalone PWA mode, check your phone's app permissions for Sika, or launch Sika in Safari/Chrome browser directly.");
     return;
   }
   
@@ -1821,7 +1903,11 @@ function showScreen(name){
     fab.classList.add("hidden");
   } else {
     chrome.classList.remove("hidden");
-    fab.classList.remove("hidden");
+    if (name === "dashboard" || name === "categories") {
+      fab.classList.remove("hidden");
+    } else {
+      fab.classList.add("hidden");
+    }
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     const tabBtn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
     if (tabBtn) tabBtn.classList.add("active");
