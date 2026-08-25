@@ -86,8 +86,13 @@ async function getUser(username){
   try{
     const doc=await db.collection("users").doc(username).get();
     if(!doc.exists) return null;
-    return doc.data();
+    const data = doc.data() || {};
+    return { ...data, storedUsername: data.username, username: doc.id };
   }catch(err){console.error(err);throw err;}
+}
+
+function householdIdOf(user){
+  return user?.householdId || user?.username;
 }
 
 async function createUser(user){
@@ -96,7 +101,8 @@ async function createUser(user){
 }
 
 async function updateUserInDB(user){
-  await db.collection("users").doc(user.username).set(user);
+  const { storedUsername, ...rest } = user;
+  await db.collection("users").doc(user.username).set(rest);
   return true;
 }
 
@@ -132,7 +138,8 @@ async function saveUsername(){
 
       const updatedUser = { ...currentUser, username: newUsername, displayUsername: newDisplayUsername };
       if (wasOwnHousehold) updatedUser.householdId = newUsername;
-      await db.collection("users").doc(newUsername).set(updatedUser);
+      const { storedUsername, ...userPayload } = updatedUser;
+      await db.collection("users").doc(newUsername).set(userPayload);
 
       const budgetsDoc = await db.collection("budgets").doc(oldUsername).get();
       if (budgetsDoc.exists && newUsername !== oldUsername){
@@ -202,14 +209,45 @@ async function loadExpensesForHousehold(householdId){
     return [];
   }
 }
-async function loadRecurringForUser(username){
-  try {
-    const snapshot = await db.collection("recurring").where("username", "==", username).get();
-    return snapshot.docs.map(doc => doc.data());
-  } catch (err) {
-    console.error("Failed to load recurring templates:", err);
-    return [];
+async function loadExpensesForAccount(username, householdId){
+  const byId = new Map();
+  const addAll = (list) => {
+    list.forEach(item => {
+      if (item && item.id != null) byId.set(String(item.id), item);
+    });
+  };
+  addAll(await loadExpensesForUser(username));
+  if (householdId) addAll(await loadExpensesForHousehold(householdId));
+  return Array.from(byId.values());
+}
+function recurringFromDoc(doc){
+  const data = doc.data() || {};
+  return { ...data, id: data.id ?? doc.id };
+}
+
+async function loadRecurringForUser(username, householdId){
+  const names = [...new Set(
+    [username, currentUser?.username, currentUser?.storedUsername]
+      .filter(Boolean)
+      .map(n => String(n))
+  )];
+  const byId = new Map();
+  const tryQuery = async (query) => {
+    try {
+      const snapshot = await query;
+      snapshot.docs.forEach(doc => {
+        const item = recurringFromDoc(doc);
+        byId.set(String(item.id), item);
+      });
+    } catch (err) {
+      console.error("Failed to load recurring templates:", err);
+    }
+  };
+  for (const name of names){
+    await tryQuery(db.collection("recurring").where("username", "==", name).get());
   }
+  if (householdId) await tryQuery(db.collection("recurring").where("householdId", "==", householdId).get());
+  return Array.from(byId.values());
 }
 
 async function addExpenseToDB(expense){
@@ -312,7 +350,9 @@ function toggleRateInput(){
 function formatMoney(n, currency = "GHS"){
   const symbols = { GHS: "₵", USD: "$", GBP: "£", EUR: "€" };
   const symbol = symbols[currency] || "₵";
-  return symbol + n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const value = Number(n);
+  const safe = Number.isFinite(value) ? value : 0;
+  return symbol + safe.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function getCategory(id){
   return CATEGORIES.find(c => c.id === id) || { name: "Other", emoji: "•" };
@@ -429,9 +469,9 @@ async function loginUser(){
       currentUser.displayUsername = username;
       await db.collection("users").doc(username).update({ displayUsername: username });
     }
-    const householdId = currentUser.householdId || currentUser.username;
-    expenses = await loadExpensesForHousehold(householdId);
-    recurringTemplates = await loadRecurringForUser(username);
+    const householdId = householdIdOf(currentUser);
+    expenses = await loadExpensesForAccount(currentUser.username, householdId);
+    recurringTemplates = await loadRecurringForUser(currentUser.username, householdId);
     await processRecurringEntries();
     localStorage.setItem(SESSION_KEY, username);
     enterApp();
@@ -492,6 +532,7 @@ async function registerUser(){
     await createUser(currentUser);
 
     expenses = await loadExpensesForHousehold(householdId);
+    recurringTemplates = [];
     localStorage.setItem(SESSION_KEY, username);
     enterApp();
   } catch (err) {
@@ -505,6 +546,8 @@ function logoutUser(){
   localStorage.removeItem(SESSION_KEY);
   currentUser = null;
   expenses = [];
+  recurringTemplates = [];
+  budgets = {};
   document.getElementById("loginUsername").value = "";
   document.getElementById("loginPassword").value = "";
   resetRegisterForm();
@@ -675,28 +718,56 @@ async function saveProfileChanges(){
     btn.textContent = "Save changes";
   }
 }
+function toISODate(d){
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${da}`;
+}
+
+function normalizeDateStr(value){
+  if (!value) return toISODate(new Date());
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  if (value.toDate) return toISODate(value.toDate());
+  if (typeof value.seconds === "number") return toISODate(new Date(value.seconds * 1000));
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? toISODate(new Date()) : toISODate(d);
+}
+
 async function processRecurringEntries(){
-  const today = new Date().toISOString().slice(0,10);
+  const today = toISODate(new Date());
+  const householdId = householdIdOf(currentUser);
 
   for (const template of recurringTemplates){
-    while (template.nextDate <= today){
+    if (!template.nextDate) template.nextDate = today;
+    template.nextDate = normalizeDateStr(template.nextDate);
+    if (!template.householdId && householdId) template.householdId = householdId;
+    if (!template.username && currentUser?.username) template.username = currentUser.username;
+
+    let guard = 0;
+    while (template.nextDate <= today && guard < 36){
       const newExpense = {
         id: Date.now() + Math.floor(Math.random() * 1000),
-        username: template.username,
+        username: template.username || currentUser?.username,
+        householdId: template.householdId || householdId,
         amount: template.amount,
+        amountGHS: template.amountGHS ?? template.amount,
+        currency: template.currency || "GHS",
+        rate: template.rate ?? 1,
         categoryId: template.categoryId,
         method: template.method,
-        note: template.note,
+        note: template.note || "",
         date: template.nextDate,
-        type: template.type,
+        type: template.type || "expense",
       };
       expenses.push(newExpense);
       await addExpenseToDB(newExpense);
 
       template.nextDate = getNextOccurrence(template.nextDate, template.frequency);
+      guard++;
     }
   }
-  await saveRecurringTemplatesToDB(recurringTemplates);
+  if (recurringTemplates.length) await saveRecurringTemplatesToDB(recurringTemplates);
 }
 function renderDashboard(){
   document.getElementById("dashGreeting").textContent = currentUser ? `Hi, ${currentUser.displayUsername || currentUser.username}` : "Sika";
@@ -945,13 +1016,14 @@ async function saveExpense(){
       const template = {
         id: Date.now() + 1,
         username: currentUser.username,
+        householdId,
         amount,
         amountGHS,
         currency,
         rate,
         categoryId: selectedCategoryId,
         method: selectedMethod,
-        note,
+        note: note || "",
         type: selectedType,
         frequency,
         nextDate: getNextOccurrence(date, frequency),
@@ -975,10 +1047,11 @@ function toggleRecurringOptions(){
 }
 
 function getNextOccurrence(fromDateStr, frequency){
-  const d = new Date(fromDateStr);
+  const parts = normalizeDateStr(fromDateStr).split("-").map(Number);
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
   if (frequency === "weekly") d.setDate(d.getDate() + 7);
-  else d.setMonth(d.getMonth() + 1); // monthly
-  return d.toISOString().slice(0,10);
+  else d.setMonth(d.getMonth() + 1);
+  return toISODate(d);
 }
 function renderCategories(){
   const monthEntries = expenses.filter(e => isThisMonth(e.date));
@@ -988,30 +1061,39 @@ function renderCategories(){
 
 function renderRecurringScreen(){
   const container = document.getElementById("recurringList");
-  if (!recurringTemplates.length){
-    container.innerHTML = `<p class="page-sub">No recurring entries yet. Turn on "Repeat" when adding an entry to create one.</p>`;
+  if (!container) return;
+  const templates = Array.isArray(recurringTemplates) ? recurringTemplates : [];
+  if (!templates.length){
+    container.innerHTML = `<p class="page-sub">No recurring entries yet. Turn on "Make this recurring" when adding an entry to create one.</p>`;
     return;
   }
-  container.innerHTML = recurringTemplates.map(t => {
-    const list = t.type === "income" ? INCOME_CATEGORIES : CATEGORIES;
-    const cat = list.find(c => c.id === t.categoryId);
-    const freqLabel = t.frequency === "weekly" ? "Weekly" : "Monthly";
-    return `
+  try {
+    container.innerHTML = templates.map(t => {
+      const cat = getCategoryAny(t.categoryId, t.type || "expense");
+      const freqLabel = t.frequency === "weekly" ? "Weekly" : "Monthly";
+      const next = normalizeDateStr(t.nextDate);
+      const note = t.note ? " · " + String(t.note).replace(/</g, "&lt;") : "";
+      const idAttr = String(t.id).replace(/'/g, "");
+      return `
       <div class="budget-card">
         <div class="budget-card-top">
-          <span class="budget-card-emoji">${cat ? cat.emoji : "🔁"}</span>
-          <span class="budget-card-name">${cat ? cat.name : "Uncategorized"}</span>
-          <button class="secondary-btn" style="padding:6px 12px" onclick="deleteRecurringTemplate(${t.id})">Delete</button>
+          <span class="budget-card-emoji">${cat.emoji || "🔁"}</span>
+          <span class="budget-card-name">${cat.name || "Uncategorized"}</span>
+          <button class="secondary-btn" style="padding:6px 12px" onclick="deleteRecurringTemplate('${idAttr}')">Delete</button>
         </div>
-        <div class="budget-status">${freqLabel} · ${formatMoney(t.amount)}${t.note ? " · " + t.note : ""} · next on ${t.nextDate}</div>
+        <div class="budget-status">${freqLabel} · ${formatMoney(t.amount ?? t.amountGHS, t.currency)}${note} · next on ${next}</div>
       </div>
     `;
-  }).join("");
+    }).join("");
+  } catch (err) {
+    console.error("Failed to render recurring screen:", err);
+    container.innerHTML = `<p class="page-sub">Couldn't show recurring entries. Pull to refresh and try again.</p>`;
+  }
 }
 
 function deleteRecurringTemplate(id){
   showConfirm("Stop this recurring entry? Past entries it already created will stay.", async () => {
-    recurringTemplates = recurringTemplates.filter(t => t.id !== id);
+    recurringTemplates = recurringTemplates.filter(t => String(t.id) !== String(id));
     await deleteRecurringFromDB(id);
     renderRecurringScreen();
   });
@@ -1261,13 +1343,16 @@ async function init(){
   if (savedUsername){
     try {
            currentUser = await getUser(savedUsername);
+      if (!currentUser) throw new Error("Session user not found");
       if (!currentUser.displayUsername){
         currentUser.displayUsername = savedUsername;
         await db.collection("users").doc(savedUsername).update({ displayUsername: savedUsername });
       }
-            expenses = await loadExpensesForUser(savedUsername);
-      recurringTemplates = await loadRecurringForUser(savedUsername);
-      enterApp();
+      const householdId = householdIdOf(currentUser);
+      expenses = await loadExpensesForAccount(currentUser.username, householdId);
+      recurringTemplates = await loadRecurringForUser(currentUser.username, householdId);
+      await processRecurringEntries();
+      await enterApp();
       const params = new URLSearchParams(window.location.search);
       const action = params.get("action");
       if (action === "add") showScreen("add");
