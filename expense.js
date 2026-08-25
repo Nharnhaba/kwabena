@@ -403,7 +403,6 @@ async function loginUser(){
     errorEl.textContent = "Enter your username and password.";
     return;
   }
-  
 
   errorEl.textContent = "";
   btn.disabled = true;
@@ -416,8 +415,11 @@ async function loginUser(){
     const hash = await hashPassword(password);
     if (hash !== user.passwordHash) throw new Error("Incorrect username or password.");
 
-    currentUser = user;
-    if (!currentUser.displayUsername) currentUser.displayUsername = username;
+        currentUser = user;
+    if (!currentUser.displayUsername){
+      currentUser.displayUsername = username;
+      await db.collection("users").doc(username).update({ displayUsername: username });
+    }
     const householdId = currentUser.householdId || currentUser.username;
     expenses = await loadExpensesForHousehold(householdId);
     recurringTemplates = await loadRecurringForUser(username);
