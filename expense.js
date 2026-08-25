@@ -23,6 +23,7 @@ let selectedType = "expense";
 let budgets = {};
 let recurringTemplates = [];
 let debts = [];
+let debtViewMode = "lent";
 
 // Dashboard state
 let dateFilterValue = null;
@@ -42,20 +43,33 @@ function showUpdateBanner(reg){
 
   // Show native system notification if supported and allowed
   if ("Notification" in window && Notification.permission === "granted") {
-    try {
-      const notification = new Notification("Sika Update Ready", {
-        body: "A new version of Sika is ready. Tap to update now!",
-        icon: "icon-192.png",
-        tag: "sika-update-notify", // prevent duplicates
-        requireInteraction: true
+    const title = "Sika Update Ready";
+    const options = {
+      body: "A new version of Sika is ready. Tap to update now!",
+      icon: "icon-192.png",
+      tag: "sika-update-notify", // prevent duplicates
+      requireInteraction: true
+    };
+
+    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(swReg => {
+        swReg.showNotification(title, options);
+      }).catch(err => {
+        console.warn("Service worker notification failed, trying standard Notification:", err);
+        const notification = new Notification(title, options);
+        notification.onclick = function() {
+          window.focus();
+          applyUpdate();
+          notification.close();
+        };
       });
+    } else {
+      const notification = new Notification(title, options);
       notification.onclick = function() {
         window.focus();
         applyUpdate();
         notification.close();
       };
-    } catch (err) {
-      console.warn("Failed to display system notification:", err);
     }
   }
 }
@@ -945,7 +959,7 @@ function renderDashboard(){
   if (totalMonthlyBudget > 0) {
     dailyLimitAmountEl.textContent = `${formatMoney(leftToday)} left today`;
     dailyLimitSpentEl.textContent = `Spent today: ${formatMoney(spentToday)} of ${formatMoney(dailyLimit)}`;
-    const pct = Math.min(100, Math.round((spentToday / dailyLimit) * 100));
+    const pct = dailyLimit > 0 ? Math.min(100, Math.round((spentToday / dailyLimit) * 100)) : (spentToday > 0 ? 100 : 0);
     dailyBudgetPercentageText.textContent = `${pct}%`;
     const offset = 157 - (pct / 100) * 157;
     dailyBudgetProgressCircle.style.strokeDashoffset = offset;
@@ -1275,7 +1289,11 @@ function startVoiceInput() {
     
     voiceRecognition.onerror = function(event) {
       console.error("Speech recognition error:", event.error);
-      showBudgetToast("Voice input failed. Try again.", "over");
+      if (event.error === "not-allowed") {
+        alert("Microphone access denied. Note: Standalone PWA mode on some phones blocks voice capture. Try running Sika inside Safari/Chrome browser directly.");
+      } else {
+        showBudgetToast("Voice input failed. Try again.", "over");
+      }
     };
     
     voiceRecognition.onend = function() {
@@ -1492,10 +1510,18 @@ function deleteRecurringTemplate(id){
   });
 }
 
+function setDebtViewMode(mode){
+  debtViewMode = mode;
+  renderDebtsScreen();
+}
+
 function renderDebtsScreen(){
   const listContainer = document.getElementById("debtsList");
   if (!listContainer) return;
   
+  document.getElementById("debtViewLent").classList.toggle("active", debtViewMode === "lent");
+  document.getElementById("debtViewBorrowed").classList.toggle("active", debtViewMode === "borrowed");
+
   const currentDebts = Array.isArray(debts) ? debts : [];
   
   const lentTotal = currentDebts.filter(d => d.type === "lent").reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
@@ -1504,12 +1530,14 @@ function renderDebtsScreen(){
   document.getElementById("lentTotal").textContent = formatMoney(lentTotal);
   document.getElementById("borrowedTotal").textContent = formatMoney(borrowedTotal);
   
-  if (!currentDebts.length){
-    listContainer.innerHTML = `<p class="page-sub">No active debts. Great job!</p>`;
+  const filteredDebts = currentDebts.filter(d => d.type === debtViewMode);
+  
+  if (!filteredDebts.length){
+    listContainer.innerHTML = `<p class="page-sub">No active ${debtViewMode} entries found.</p>`;
     return;
   }
   
-  listContainer.innerHTML = currentDebts.map(d => {
+  listContainer.innerHTML = filteredDebts.map(d => {
     const isLent = d.type === "lent";
     const amtColor = isLent ? "var(--green)" : "var(--coral)";
     const typeLabel = isLent ? "You Lent" : "You Borrowed";
@@ -1565,6 +1593,7 @@ async function addNewDebt(){
   amountEl.value = "";
   noteEl.value = "";
   
+  debtViewMode = type;
   renderDebtsScreen();
 }
 
