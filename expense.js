@@ -38,6 +38,25 @@ let pendingUpdateReg = null;
 function showUpdateBanner(reg){
   pendingUpdateReg = reg;
   document.getElementById("updateBanner").classList.remove("hidden");
+
+  // Show native system notification if supported and allowed
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      const notification = new Notification("Sika Update Ready", {
+        body: "A new version of Sika is ready. Tap to update now!",
+        icon: "icon-192.png",
+        tag: "sika-update-notify", // prevent duplicates
+        requireInteraction: true
+      });
+      notification.onclick = function() {
+        window.focus();
+        applyUpdate();
+        notification.close();
+      };
+    } catch (err) {
+      console.warn("Failed to display system notification:", err);
+    }
+  }
 }
 
 function applyUpdate(){
