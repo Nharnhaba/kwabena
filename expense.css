@@ -589,6 +589,8 @@ input:disabled{
 .toggle-opt.type-expense.active{ background: var(--coral); color:#2a0a02; }
 .toggle-opt.debt-lent.active { background: var(--green); color: #04231a; }
 .toggle-opt.debt-borrowed.active { background: var(--coral); color: #2a0a02; }
+.toggle-opt#notifyBtnEnable.active { background: var(--green); color: #04231a; }
+.toggle-opt#notifyBtnDisable.active { background: var(--coral); color: #2a0a02; }
 .ticket-amount.expense{ color: var(--coral); }
 #themeToggleBtn{
   position: absolute;

@@ -27,7 +27,7 @@ let debtViewMode = "lent";
 
 // Dashboard state
 let dateFilterValue = null;
-let quickFilter = "week";
+let quickFilter = "today";
 let summaryMode = "month";
 let editingExpenseId = null;
 const SESSION_KEY = "sika-session";
@@ -42,7 +42,7 @@ function showUpdateBanner(reg){
   document.getElementById("updateBanner").classList.remove("hidden");
 
   // Show native system notification if supported and allowed
-  if ("Notification" in window && Notification.permission === "granted") {
+  if ("Notification" in window && Notification.permission === "granted" && localStorage.getItem("sika-notifications-enabled") !== "false") {
     const title = "Sika Update Ready";
     const options = {
       body: "A new version of Sika is ready. Tap to update now!",
@@ -739,43 +739,58 @@ function renderProfileScreen(){
 }
 
 function updateNotificationButtonUI() {
-  const btn = document.getElementById("requestNotifyBtn");
-  if (!btn) return;
+  const enableBtn = document.getElementById("notifyBtnEnable");
+  const disableBtn = document.getElementById("notifyBtnDisable");
+  if (!enableBtn || !disableBtn) return;
+  
   if (!("Notification" in window)) {
-    btn.textContent = "Unsupported";
-    btn.disabled = true;
+    enableBtn.textContent = "Unsupported";
+    enableBtn.classList.add("disabled");
+    disableBtn.classList.add("disabled");
     return;
   }
-  if (Notification.permission === "granted") {
-    btn.textContent = "Enabled ✓";
-    btn.style.color = "var(--green)";
-    btn.style.borderColor = "var(--green)";
-    btn.disabled = true;
-  } else if (Notification.permission === "denied") {
-    btn.textContent = "Blocked";
-    btn.style.color = "var(--coral)";
-    btn.style.borderColor = "var(--coral)";
-    btn.disabled = false;
+  
+  const userPref = localStorage.getItem("sika-notifications-enabled") !== "false";
+  const hasPermission = Notification.permission === "granted";
+  
+  enableBtn.classList.remove("active");
+  disableBtn.classList.remove("active");
+  
+  if (hasPermission && userPref) {
+    enableBtn.textContent = "Enabled ✓";
+    enableBtn.classList.add("active");
+    disableBtn.textContent = "Disable";
   } else {
-    btn.textContent = "Enable";
-    btn.disabled = false;
+    enableBtn.textContent = "Enable";
+    disableBtn.textContent = "Disabled ✓";
+    disableBtn.classList.add("active");
   }
 }
 
-async function requestNotificationPermissionUser() {
+async function setNotificationsEnabled(enabled) {
   if (!("Notification" in window)) {
     alert("System notifications are not supported by this browser.");
     return;
   }
-  const permission = await Notification.requestPermission();
-  updateNotificationButtonUI();
-  if (permission === "granted") {
+  
+  if (enabled) {
+    if (Notification.permission !== "granted") {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        alert("Permission denied. Sika cannot send notifications without browser permission.");
+        updateNotificationButtonUI();
+        return;
+      }
+    }
+    localStorage.setItem("sika-notifications-enabled", "true");
     showBudgetToast("System notifications enabled successfully!", "ok");
-    // Trigger a test local PWA notification to verify skipping wait SkipWaiting or standard
     showUpdateBanner(null);
   } else {
-    alert("Permission denied. You can enable notifications in your browser/app settings.");
+    localStorage.setItem("sika-notifications-enabled", "false");
+    showBudgetToast("System notifications disabled.", "ok");
   }
+  
+  updateNotificationButtonUI();
 }
 
 async function confirmDeleteAccount(){
@@ -1928,11 +1943,21 @@ async function enterApp(){
   const householdId = householdIdOf(currentUser);
   debts = await loadDebtsForAccount(currentUser.username, householdId);
   populateCategoryFilter();
-  document.getElementById("chipWeek").classList.add("active");
+  document.getElementById("chipToday").classList.add("active");
   renderDashboard();
   renderCategoryGrid();
   renderCategories();
   document.getElementById("dateInput").value = new Date().toISOString().slice(0,10);
+  
+  const chipsEl = document.querySelector(".filter-chips");
+  const indicatorEl = document.querySelector(".scroll-indicator");
+  if (chipsEl && indicatorEl) {
+    chipsEl.addEventListener("scroll", () => {
+      const isEnd = chipsEl.scrollWidth - chipsEl.scrollLeft <= chipsEl.clientWidth + 10;
+      indicatorEl.style.opacity = isEnd ? "0" : "1";
+    });
+  }
+  
   showScreen("dashboard");
 }
 
