@@ -22,6 +22,7 @@ let selectedMethod = "momo";
 let selectedType = "expense";
 let budgets = {};
 let recurringTemplates = [];
+let debts = [];
 
 // Dashboard state
 let dateFilterValue = null;
@@ -290,6 +291,44 @@ async function loadRecurringForUser(username, householdId){
   return Array.from(byId.values());
 }
 
+async function loadDebtsForAccount(username, householdId){
+  const byId = new Map();
+  const tryQuery = async (query) => {
+    try {
+      const snapshot = await query;
+      snapshot.docs.forEach(doc => {
+        const item = { ...doc.data(), id: doc.data().id ?? doc.id };
+        byId.set(String(item.id), item);
+      });
+    } catch (err) {
+      console.error("Failed to load debts:", err);
+    }
+  };
+  await tryQuery(db.collection("debts").where("username", "==", username).get());
+  if (householdId) {
+    await tryQuery(db.collection("debts").where("householdId", "==", householdId).get());
+  }
+  return Array.from(byId.values());
+}
+
+async function addDebtToDB(debt){
+  try {
+    await db.collection("debts").doc(String(debt.id)).set(debt);
+  } catch (err) {
+    console.error("Failed to save debt:", err);
+    alert("Couldn't save that debt. Check your internet connection.");
+  }
+}
+
+async function deleteDebtFromDB(id){
+  try {
+    await db.collection("debts").doc(String(id)).delete();
+  } catch (err) {
+    console.error("Failed to delete debt:", err);
+    alert("Couldn't settle that debt. Check your internet connection.");
+  }
+}
+
 async function addExpenseToDB(expense){
   try {
     await db.collection("expenses").doc(String(expense.id)).set(expense);
@@ -435,6 +474,18 @@ function getWeekStart(refDate, offsetWeeks = 0){
   day.setDate(day.getDate() - dayOfWeek + offsetWeeks * 7);
   day.setHours(0, 0, 0, 0);
   return day;
+}
+
+function isToday(dateStr) {
+  const d = new Date(dateStr), now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
+
+function isYesterday(dateStr) {
+  const d = new Date(dateStr), now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  return d.getFullYear() === yesterday.getFullYear() && d.getMonth() === yesterday.getMonth() && d.getDate() === yesterday.getDate();
 }
 
 function isThisWeek(dateStr){
@@ -587,6 +638,7 @@ function logoutUser(){
   currentUser = null;
   expenses = [];
   recurringTemplates = [];
+  debts = [];
   budgets = {};
   document.getElementById("loginUsername").value = "";
   document.getElementById("loginPassword").value = "";
@@ -819,6 +871,38 @@ function renderDashboard(){
   const monthEntries = expenses.filter(e => isThisMonth(e.date));
   const weekEntries = expenses.filter(e => isThisWeek(e.date));
 
+  // Category budgets alerts/nudges
+  const budgetAlertsEl = document.getElementById("dashboardBudgetAlerts");
+  if (budgetAlertsEl) {
+    const alerts = [];
+    const spentByCategory = {};
+    CATEGORIES.forEach(c => spentByCategory[c.id] = 0);
+    const monthExpenses = monthEntries.filter(e => (e.type || "expense") === "expense");
+    monthExpenses.forEach(e => {
+      spentByCategory[e.categoryId] = (spentByCategory[e.categoryId] || 0) + e.amount;
+    });
+
+    CATEGORIES.forEach(c => {
+      const limit = budgets[c.id] || 0;
+      const spent = spentByCategory[c.id] || 0;
+      if (limit > 0) {
+        const pct = Math.round((spent / limit) * 100);
+        if (spent > limit) {
+          alerts.push(`<div class="budget-nudge over" style="background: rgba(239, 68, 68, 0.15); color: var(--coral); padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500; margin-bottom: 8px; border-left: 4px solid var(--coral);">🚨 <strong>${c.name}</strong> is over budget: ${formatMoney(spent)} of ${formatMoney(limit)}!</div>`);
+        } else if (pct >= 80) {
+          alerts.push(`<div class="budget-nudge warn" style="background: rgba(245, 158, 11, 0.15); color: var(--gold); padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500; margin-bottom: 8px; border-left: 4px solid var(--gold);">⚠️ <strong>${c.name}</strong> budget is at ${pct}%: ${formatMoney(spent)} of ${formatMoney(limit)}</div>`);
+        }
+      }
+    });
+
+    if (alerts.length > 0) {
+      budgetAlertsEl.innerHTML = alerts.join("");
+      budgetAlertsEl.classList.remove("hidden");
+    } else {
+      budgetAlertsEl.classList.add("hidden");
+    }
+  }
+
   const monthExpenseTotal = monthEntries.filter(e => (e.type || "expense") === "expense").reduce((sum, e) => sum + e.amount, 0);
   const monthIncomeTotal = monthEntries.filter(e => e.type === "income").reduce((sum, e) => sum + e.amount, 0);
   const weekExpenseTotal = weekEntries.filter(e => (e.type || "expense") === "expense").reduce((sum, e) => sum + e.amount, 0);
@@ -830,6 +914,55 @@ function renderDashboard(){
   document.getElementById("countTotal").textContent = monthEntries.length;
   document.getElementById("dashDateLabel").textContent =
     new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+  // Calculate Daily Budget Ring
+  const totalMonthlyBudget = Object.values(budgets).reduce((sum, val) => sum + parseFloat(val || 0), 0);
+  const todayDate = new Date();
+  const totalDaysInMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
+  const remainingDays = totalDaysInMonth - todayDate.getDate() + 1;
+
+  // Monthly expenses before today
+  const monthExpensesBeforeToday = expenses.filter(e => {
+    if (!isThisMonth(e.date) || (e.type || "expense") !== "expense") return false;
+    const expDate = new Date(e.date);
+    return expDate.getDate() < todayDate.getDate();
+  }).reduce((sum, e) => sum + e.amount, 0);
+
+  const remainingBudget = Math.max(0, totalMonthlyBudget - monthExpensesBeforeToday);
+  const dailyLimit = remainingDays > 0 && totalMonthlyBudget > 0 ? (remainingBudget / remainingDays) : 0;
+
+  const spentToday = expenses.filter(e => {
+    return isToday(e.date) && (e.type || "expense") === "expense";
+  }).reduce((sum, e) => sum + e.amount, 0);
+
+  const leftToday = Math.max(0, dailyLimit - spentToday);
+
+  const dailyLimitAmountEl = document.getElementById("dailyLimitAmount");
+  const dailyLimitSpentEl = document.getElementById("dailyLimitSpent");
+  const dailyBudgetProgressCircle = document.getElementById("dailyBudgetProgressCircle");
+  const dailyBudgetPercentageText = document.getElementById("dailyBudgetPercentageText");
+
+  if (totalMonthlyBudget > 0) {
+    dailyLimitAmountEl.textContent = `${formatMoney(leftToday)} left today`;
+    dailyLimitSpentEl.textContent = `Spent today: ${formatMoney(spentToday)} of ${formatMoney(dailyLimit)}`;
+    const pct = Math.min(100, Math.round((spentToday / dailyLimit) * 100));
+    dailyBudgetPercentageText.textContent = `${pct}%`;
+    const offset = 157 - (pct / 100) * 157;
+    dailyBudgetProgressCircle.style.strokeDashoffset = offset;
+    if (pct >= 100) {
+      dailyBudgetProgressCircle.setAttribute("stroke", "var(--coral)");
+    } else if (pct >= 80) {
+      dailyBudgetProgressCircle.setAttribute("stroke", "var(--gold)");
+    } else {
+      dailyBudgetProgressCircle.setAttribute("stroke", "var(--green)");
+    }
+  } else {
+    dailyLimitAmountEl.textContent = "No budget set";
+    dailyLimitSpentEl.textContent = "Set budget in Categories > Set budgets";
+    dailyBudgetPercentageText.textContent = "0%";
+    dailyBudgetProgressCircle.style.strokeDashoffset = 157;
+    dailyBudgetProgressCircle.setAttribute("stroke", "var(--border)");
+  }
 
   let listSource = [...expenses].sort((a,b) => new Date(b.date) - new Date(a.date));
 
@@ -850,6 +983,10 @@ function renderDashboard(){
     });
   } else if (dateFilterValue){
     listSource = listSource.filter(e => e.date === dateFilterValue);
+  } else if (quickFilter === "today"){
+    listSource = listSource.filter(e => isToday(e.date));
+  } else if (quickFilter === "yesterday"){
+    listSource = listSource.filter(e => isYesterday(e.date));
   } else if (quickFilter === "week"){
     listSource = listSource.filter(e => isThisWeek(e.date));
   } else if (quickFilter === "lastweek"){
@@ -875,8 +1012,8 @@ function renderDashboard(){
   list.innerHTML = listSource.map(e => {
     const type = e.type || "expense";
     const cat = getCategoryAny(e.categoryId, type);
-    const badgeClass = e.method === "momo" ? "badge-momo" : "badge-cash";
-    const badgeLabel = e.method === "momo" ? "Mobile money" : "Cash";
+    const badgeClass = e.method === "momo" ? "badge-momo" : (e.method === "bank" ? "badge-bank" : "badge-cash");
+    const badgeLabel = e.method === "momo" ? "Mobile money" : (e.method === "bank" ? "Bank" : "Cash");
     const sign = type === "income" ? "+" : "−";
     const amountClass = type === "income" ? "ticket-amount income" : "ticket-amount expense";
     return `
@@ -922,7 +1059,14 @@ function setQuickFilter(mode){
   document.getElementById("dateFilter").value = "";
   document.getElementById("clearFilterBtn").classList.add("hidden");
   document.querySelectorAll(".chip-btn").forEach(b => b.classList.remove("active"));
-  const chipIds = { week: "chipWeek", lastweek: "chipLastWeek", month: "chipMonth", lastmonth: "chipLastMonth" };
+  const chipIds = { 
+    today: "chipToday", 
+    yesterday: "chipYesterday", 
+    week: "chipWeek", 
+    lastweek: "chipLastWeek", 
+    month: "chipMonth", 
+    lastmonth: "chipLastMonth" 
+  };
   document.getElementById(chipIds[mode]).classList.add("active");
   renderDashboard();
 }
@@ -957,6 +1101,7 @@ function setPaymentMethod(method){
   selectedMethod = method;
   document.getElementById("toggleMomo").classList.toggle("active", method === "momo");
   document.getElementById("toggleCash").classList.toggle("active", method === "cash");
+  document.getElementById("toggleBank").classList.toggle("active", method === "bank");
 }
 function setEntryType(type){
   selectedType = type;
@@ -1053,6 +1198,99 @@ function startNewExpense(){
 function cancelEditExpense(){
   resetAddForm();
   showScreen("dashboard");
+}
+
+let voiceRecognition = null;
+
+function startVoiceInput() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert("Voice recognition is not supported in this browser. Please try Google Chrome.");
+    return;
+  }
+  
+  const voiceBtn = document.getElementById("voiceBtn");
+  if (voiceRecognition) {
+    voiceRecognition.stop();
+    return;
+  }
+  
+  try {
+    voiceRecognition = new SpeechRecognition();
+    voiceRecognition.lang = "en-GH";
+    voiceRecognition.interimResults = false;
+    voiceRecognition.maxAlternatives = 1;
+    
+    voiceRecognition.onstart = function() {
+      voiceBtn.textContent = "🛑";
+      voiceBtn.style.background = "var(--coral)";
+      voiceBtn.style.color = "#ffffff";
+    };
+    
+    voiceRecognition.onresult = function(event) {
+      const text = event.results[0][0].transcript.toLowerCase();
+      console.log("Speech heard:", text);
+      
+      // Parse Amount
+      const amountMatch = text.match(/\b(\d+(?:\.\d+)?)\b/);
+      if (amountMatch && amountMatch[1]) {
+        document.getElementById("amountInput").value = parseFloat(amountMatch[1]).toFixed(2);
+      }
+      
+      // Parse Category
+      const matchedCat = CATEGORIES.find(c => 
+        text.includes(c.name.toLowerCase()) || 
+        (c.id && text.includes(c.id.toLowerCase())) ||
+        (c.emoji && text.includes(c.emoji))
+      ) || INCOME_CATEGORIES.find(c => 
+        text.includes(c.name.toLowerCase()) || 
+        (c.id && text.includes(c.id.toLowerCase()))
+      );
+      
+      if (matchedCat) {
+        selectCategory(matchedCat.id);
+        if (INCOME_CATEGORIES.find(c => c.id === matchedCat.id)) {
+          setEntryType("income");
+        } else {
+          setEntryType("expense");
+        }
+      }
+      
+      // Parse Note
+      let noteText = text
+        .replace(/\b\d+(?:\.\d+)?\b/g, "")
+        .replace(/\b(spent|received|income|expense|on|for|cedis|ghs|cedi|wallet|cash|momo|bank)\b/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
+        
+      if (noteText) {
+        noteText = noteText.charAt(0).toUpperCase() + noteText.slice(1);
+        document.getElementById("noteInput").value = noteText;
+      } else {
+        document.getElementById("noteInput").value = text;
+      }
+      
+      showBudgetToast(`Heard: "${text}"`, "ok");
+    };
+    
+    voiceRecognition.onerror = function(event) {
+      console.error("Speech recognition error:", event.error);
+      showBudgetToast("Voice input failed. Try again.", "over");
+    };
+    
+    voiceRecognition.onend = function() {
+      voiceBtn.textContent = "🎙️";
+      voiceBtn.style.background = "var(--surface)";
+      voiceBtn.style.color = "var(--text-primary)";
+      voiceRecognition = null;
+    };
+    
+    voiceRecognition.start();
+  } catch (err) {
+    console.error("Failed to start voice recognition:", err);
+    voiceBtn.textContent = "🎙️";
+    voiceRecognition = null;
+  }
 }
 
 async function saveExpense(){
@@ -1251,6 +1489,90 @@ function deleteRecurringTemplate(id){
     recurringTemplates = recurringTemplates.filter(t => String(t.id) !== String(id));
     await deleteRecurringFromDB(id);
     renderRecurringScreen();
+  });
+}
+
+function renderDebtsScreen(){
+  const listContainer = document.getElementById("debtsList");
+  if (!listContainer) return;
+  
+  const currentDebts = Array.isArray(debts) ? debts : [];
+  
+  const lentTotal = currentDebts.filter(d => d.type === "lent").reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
+  const borrowedTotal = currentDebts.filter(d => d.type === "borrowed").reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
+  
+  document.getElementById("lentTotal").textContent = formatMoney(lentTotal);
+  document.getElementById("borrowedTotal").textContent = formatMoney(borrowedTotal);
+  
+  if (!currentDebts.length){
+    listContainer.innerHTML = `<p class="page-sub">No active debts. Great job!</p>`;
+    return;
+  }
+  
+  listContainer.innerHTML = currentDebts.map(d => {
+    const isLent = d.type === "lent";
+    const amtColor = isLent ? "var(--green)" : "var(--coral)";
+    const typeLabel = isLent ? "You Lent" : "You Borrowed";
+    const emoji = isLent ? "📤" : "📥";
+    const idAttr = String(d.id).replace(/'/g, "");
+    
+    return `
+      <div class="budget-card">
+        <div class="budget-card-top">
+          <span class="budget-card-emoji">${emoji}</span>
+          <span class="budget-card-name" style="font-weight: 600;">${d.name}</span>
+          <button class="secondary-btn" style="padding:6px 12px; width: auto;" onclick="settleDebt('${idAttr}')">Settle</button>
+        </div>
+        <div class="budget-status">
+          <span style="color: ${amtColor}; font-weight: 600;">${typeLabel} ${formatMoney(d.amount)}</span>
+          ${d.note ? ` · ${String(d.note).replace(/</g, "&lt;")}` : ""}
+          <span style="float: right; font-size: 11px; opacity: 0.7;">${d.date}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function addNewDebt(){
+  const nameEl = document.getElementById("debtName");
+  const amountEl = document.getElementById("debtAmount");
+  const typeEl = document.getElementById("debtType");
+  const noteEl = document.getElementById("debtNote");
+  
+  const name = nameEl.value.trim();
+  const amount = parseFloat(amountEl.value);
+  const type = typeEl.value;
+  const note = noteEl.value.trim();
+  
+  if (!name) { alert("Please enter the person's name."); return; }
+  if (!amount || amount <= 0) { alert("Please enter a valid amount."); return; }
+  
+  const newDebt = {
+    id: Date.now(),
+    username: currentUser.username,
+    householdId: householdIdOf(currentUser),
+    name,
+    amount,
+    type,
+    note,
+    date: toISODate(new Date())
+  };
+  
+  debts.push(newDebt);
+  await addDebtToDB(newDebt);
+  
+  nameEl.value = "";
+  amountEl.value = "";
+  noteEl.value = "";
+  
+  renderDebtsScreen();
+}
+
+function settleDebt(id){
+  showConfirm("Mark this debt as settled?", async () => {
+    debts = debts.filter(d => String(d.id) !== String(id));
+    await deleteDebtFromDB(id);
+    renderDebtsScreen();
   });
 }
 
@@ -1475,6 +1797,7 @@ function showScreen(name){
     if (name === "summary") renderSummaryScreen();
     if (name === "budgets") renderBudgetsScreen();
     if (name === "recurring") renderRecurringScreen();
+    if (name === "debts") renderDebtsScreen();
   }
 
   if (name === "add" && !editingExpenseId) resetAddForm();
@@ -1483,6 +1806,8 @@ function showScreen(name){
 
 async function enterApp(){
   budgets = await loadBudgetsForUser(currentUser.username);
+  const householdId = householdIdOf(currentUser);
+  debts = await loadDebtsForAccount(currentUser.username, householdId);
   populateCategoryFilter();
   document.getElementById("chipWeek").classList.add("active");
   renderDashboard();

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Sika — Expense Tracker</title>
-<meta name="app-version" content="1.0.5" />
+<meta name="app-version" content="1.0.6" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -99,11 +99,29 @@
         </div>
       </div>
       <div style="height:18px"></div>
+      <div id="dashboardBudgetAlerts" class="hidden" style="margin-bottom:16px;"></div>
 
       <div class="totals-row">
         <div class="total-card big balance-card">
           <div class="total-label">Balance this month</div>
           <div class="total-amount" id="balanceTotal">₵0.00</div>
+        </div>
+      </div>
+      <div class="totals-row">
+        <div class="total-card big daily-budget-card" style="display: flex; align-items: center; justify-content: space-between; position: relative; width: 100%;">
+          <div>
+            <div class="total-label">Daily budget status</div>
+            <div class="total-amount" id="dailyLimitAmount" style="font-size:20px;">₵0.00 left today</div>
+            <div class="total-label" id="dailyLimitSpent" style="margin-top:4px; font-size:11px; opacity:0.8;">Spent today: ₵0.00</div>
+          </div>
+          <div class="svg-ring-container" style="width: 60px; height: 60px; position: relative; margin-right: 8px;">
+            <svg width="60" height="60" viewBox="0 0 60 60" style="transform: rotate(-90deg); display: block;">
+              <circle cx="30" cy="30" r="25" stroke="var(--border)" stroke-width="4.5" fill="transparent" />
+              <circle id="dailyBudgetProgressCircle" cx="30" cy="30" r="25" stroke="var(--gold)" stroke-width="4.5" fill="transparent" 
+                stroke-dasharray="157" stroke-dashoffset="157" stroke-linecap="round" style="transition: stroke-dashoffset 0.35s; transform-origin: 50% 50%;" />
+            </svg>
+            <div id="dailyBudgetPercentageText" style="position: absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:11px; font-family:var(--font-mono); font-weight:600; color:var(--text-primary);">0%</div>
+          </div>
         </div>
       </div>
       <div class="totals-row">
@@ -142,6 +160,8 @@
 </div>
 
      <div class="filter-chips">
+  <button class="chip-btn" id="chipToday" onclick="setQuickFilter('today')">Today</button>
+  <button class="chip-btn" id="chipYesterday" onclick="setQuickFilter('yesterday')">Yesterday</button>
   <button class="chip-btn" id="chipWeek" onclick="setQuickFilter('week')">This week</button>
   <button class="chip-btn" id="chipLastWeek" onclick="setQuickFilter('lastweek')">Last week</button>
   <button class="chip-btn" id="chipMonth" onclick="setQuickFilter('month')">This month</button>
@@ -187,10 +207,14 @@
       <div class="toggle-row">
         <div class="toggle-opt momo active" id="toggleMomo" onclick="setPaymentMethod('momo')">Mobile money</div>
         <div class="toggle-opt cash" id="toggleCash" onclick="setPaymentMethod('cash')">Cash</div>
+        <div class="toggle-opt bank" id="toggleBank" onclick="setPaymentMethod('bank')">Bank</div>
       </div>
 
       <div class="field-label">Note</div>
-      <input id="noteInput" type="text" placeholder="What was this for?" />
+      <div style="display:flex; gap:8px; width: 100%;">
+        <input id="noteInput" type="text" placeholder="What was this for?" style="flex:1;" />
+        <button type="button" id="voiceBtn" onclick="startVoiceInput()" style="width:50px; height:50px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); font-size:20px; display:flex; align-items:center; justify-content:center; cursor:pointer;" aria-label="Voice input">🎙️</button>
+      </div>
 
       <div class="field-label">Date</div>
       <input id="dateInput" type="date" />
@@ -342,6 +366,44 @@
       <div id="budgetList"></div>
     </section>
 
+    <!-- SCREEN 8 — DEBTS -->
+    <section id="screen-debts" class="screen">
+      <h1 class="page-title">Borrow & Lend</h1>
+      <p class="page-sub">Track money you owe or are owed</p>
+
+      <div class="totals-row">
+        <div class="total-card">
+          <div class="total-label">People owe you (Lent)</div>
+          <div class="total-amount" id="lentTotal" style="color:var(--green)">₵0.00</div>
+        </div>
+        <div class="total-card">
+          <div class="total-label">You owe people (Borrowed)</div>
+          <div class="total-amount" id="borrowedTotal" style="color:var(--coral)">₵0.00</div>
+        </div>
+      </div>
+
+      <div class="cat-card" style="margin-top: 20px;">
+        <div class="field-label" style="margin-top:0">Add New Debt</div>
+        <div class="reg-field" style="margin-bottom: 12px;">
+          <input type="text" id="debtName" placeholder="Person's Name (e.g. Abena)" />
+        </div>
+        <div class="reg-field" style="margin-bottom: 12px; display: flex; gap: 8px;">
+          <input type="number" id="debtAmount" placeholder="Amount (₵)" min="1" step="any" style="flex: 1;" />
+          <select id="debtType" style="flex: 1;">
+            <option value="lent">I Lent (They owe me)</option>
+            <option value="borrowed">I Borrowed (I owe them)</option>
+          </select>
+        </div>
+        <div class="reg-field" style="margin-bottom: 12px;">
+          <input type="text" id="debtNote" placeholder="Note (e.g. Lunch, Uber)" />
+        </div>
+        <button class="save-btn" onclick="addNewDebt()" style="margin-top: 8px;">Add Debt</button>
+      </div>
+
+      <div class="section-label" style="margin: 22px 0 12px;">Active Debts</div>
+      <div id="debtsList"></div>
+    </section>
+
   </div>
 
   <button class="fab" id="fabBtn" onclick="startNewExpense()" aria-label="Add expense">+</button>
@@ -360,9 +422,13 @@
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
       Add
     </button>
-       <button class="tab-btn" data-tab="categories" onclick="showScreen('categories')">
+     <button class="tab-btn" data-tab="categories" onclick="showScreen('categories')">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
       Categories
+    </button>
+    <button class="tab-btn" data-tab="debts" onclick="showScreen('debts')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Debts
     </button>
     <button class="tab-btn" data-tab="recurring" onclick="showScreen('recurring')">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
