@@ -1026,6 +1026,11 @@ function startNewExpense(){
   showScreen("add");
 }
 
+function cancelEditExpense(){
+  resetAddForm();
+  showScreen("dashboard");
+}
+
 async function saveExpense(){
   const amount = parseFloat(document.getElementById("amountInput").value);
   const note = document.getElementById("noteInput").value.trim();
