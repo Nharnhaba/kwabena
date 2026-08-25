@@ -1061,7 +1061,9 @@ function applyDateFilter(){
 function clearDateFilter(){
   dateFilterValue = null;
   quickFilter = null;
-  document.getElementById("dateFilter").value = "";
+  const dateInput = document.getElementById("dateFilter");
+  dateInput.value = "";
+  dateInput.type = "text";
   document.getElementById("clearFilterBtn").classList.add("hidden");
   document.querySelectorAll(".chip-btn").forEach(b => b.classList.remove("active"));
   renderDashboard();
@@ -1070,7 +1072,9 @@ function clearDateFilter(){
 function setQuickFilter(mode){
   quickFilter = mode; // always one selected — no toggle-off
   dateFilterValue = null;
-  document.getElementById("dateFilter").value = "";
+  const dateInput = document.getElementById("dateFilter");
+  dateInput.value = "";
+  dateInput.type = "text";
   document.getElementById("clearFilterBtn").classList.add("hidden");
   document.querySelectorAll(".chip-btn").forEach(b => b.classList.remove("active"));
   const chipIds = { 
