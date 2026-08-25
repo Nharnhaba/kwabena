@@ -964,6 +964,8 @@ function resetAddForm(){
   document.getElementById("recurringFrequency").classList.add("hidden");
   renderCategoryGrid();
   setPaymentMethod("momo");
+  const cancelBtn = document.getElementById("cancelBtn");
+  if (cancelBtn) cancelBtn.classList.add("hidden");
 }
 
 function editExpense(id){
@@ -1015,6 +1017,9 @@ function editExpense(id){
   } else {
     freqEl.classList.add("hidden");
   }
+
+  const cancelBtn = document.getElementById("cancelBtn");
+  if (cancelBtn) cancelBtn.classList.remove("hidden");
 
   document.querySelector("#screen-add .page-title").textContent = "Edit entry";
   document.getElementById("saveBtn").textContent = "Save changes";
