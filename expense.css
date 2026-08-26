@@ -333,7 +333,7 @@ p.page-sub{
   margin-bottom: 22px;
 }
 .amount-input-wrap .currency{ font-size:14px; color:var(--text-muted); }
-#amountInput{
+#amountInput, #debtAmount{
   width:100%;
   background:none; border:none; outline:none;
   color: var(--text-primary);
@@ -343,7 +343,7 @@ p.page-sub{
   text-align:center;
   margin-top:4px;
 }
-#amountInput::placeholder{ color: var(--text-muted); }
+#amountInput::placeholder, #debtAmount::placeholder{ color: var(--text-muted); }
 
 .field-label{ font-size:12px; color:var(--text-secondary); margin: 16px 0 8px; font-weight:500; }
 

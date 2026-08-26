@@ -402,15 +402,20 @@
 
       <div class="cat-card" style="margin-top: 20px;">
         <div class="field-label" style="margin-top:0">Add New Debt</div>
+        <div class="amount-input-wrap">
+          <div class="currency">GH₵</div>
+          <input type="number" id="debtAmount" placeholder="0.00" min="1" step="any" />
+        </div>
+        <select id="debtType" style="display: none;">
+          <option value="lent">I Lent (They owe me)</option>
+          <option value="borrowed">I Borrowed (I owe them)</option>
+        </select>
+        <div class="toggle-row" style="margin-bottom: 12px;">
+          <div class="toggle-opt type-expense active" id="toggleDebtTypeLent" onclick="document.getElementById('debtType').value='lent'; document.getElementById('toggleDebtTypeLent').classList.add('active'); document.getElementById('toggleDebtTypeBorrowed').classList.remove('active');">I Lent (They owe)</div>
+          <div class="toggle-opt type-expense" id="toggleDebtTypeBorrowed" onclick="document.getElementById('debtType').value='borrowed'; document.getElementById('toggleDebtTypeLent').classList.remove('active'); document.getElementById('toggleDebtTypeBorrowed').classList.add('active');">I Borrowed</div>
+        </div>
         <div class="reg-field" style="margin-bottom: 12px;">
           <input type="text" id="debtName" placeholder="Person's Name (e.g. Abena)" />
-        </div>
-        <div class="reg-field" style="margin-bottom: 12px; display: flex; gap: 8px;">
-          <input type="number" id="debtAmount" placeholder="Amount (₵)" min="1" step="any" style="flex: 1;" />
-          <select id="debtType" style="flex: 1;">
-            <option value="lent">I Lent (They owe me)</option>
-            <option value="borrowed">I Borrowed (I owe them)</option>
-          </select>
         </div>
         <div class="reg-field" style="margin-bottom: 12px;">
           <input type="text" id="debtNote" placeholder="Note (e.g. Lunch, Uber)" />
