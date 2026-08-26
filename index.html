@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Sika — Expense Tracker</title>
-<meta name="app-version" content="1.1.3" />
+<meta name="app-version" content="1.1.4" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -468,6 +468,17 @@
       <div class="modal-actions">
         <button class="modal-btn cancel" id="confirmCancelBtn">No</button>
         <button class="modal-btn confirm" id="confirmYesBtn">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="promptModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <p class="modal-message" id="promptMessage">Enter value:</p>
+      <input type="number" id="promptInputVal" style="width: 100%; margin-bottom: 18px; text-align: center; font-size: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; color: var(--text-primary); outline: none;" />
+      <div class="modal-actions">
+        <button class="modal-btn cancel" id="promptCancelBtn">Cancel</button>
+        <button class="modal-btn confirm" id="promptConfirmBtn">Save</button>
       </div>
     </div>
   </div>

@@ -432,21 +432,21 @@ async function saveBudgetsForUser(username, budgetData){
 async function promptSetDailyBudget(event) {
   if (event) event.stopPropagation(); // prevent card click triggers
   const current = budgets._dailyLimit || 0;
-  const val = prompt("Enter your desired daily spending limit (₵):", current > 0 ? current : "");
-  if (val === null) return; // user cancelled
-  
-  const parsed = parseFloat(val);
-  if (val.trim() === "" || isNaN(parsed) || parsed <= 0) {
-    // Clear custom daily budget
-    delete budgets._dailyLimit;
-    alert("Custom daily budget cleared. Divides monthly category budget instead.");
-  } else {
-    budgets._dailyLimit = parsed;
-    alert(`Custom daily budget set to ₵${parsed.toFixed(2)}.`);
-  }
-  
-  await saveBudgetsForUser(currentUser.username, budgets);
-  renderDashboard();
+  showPrompt("Enter your desired daily spending limit (₵):", current > 0 ? current : "", async (val) => {
+    if (val === null) return; // user cancelled
+    const parsed = parseFloat(val);
+    if (val.trim() === "" || isNaN(parsed) || parsed <= 0) {
+      // Clear custom daily budget
+      delete budgets._dailyLimit;
+      showBudgetToast("Custom daily budget cleared.", "warn");
+    } else {
+      budgets._dailyLimit = parsed;
+      showBudgetToast(`Custom daily budget set to ₵${parsed.toFixed(2)}.`, "ok");
+    }
+    
+    await saveBudgetsForUser(currentUser.username, budgets);
+    renderDashboard();
+  });
 }
 
 function toggleRateInput(){
@@ -705,6 +705,30 @@ document.getElementById("confirmYesBtn").addEventListener("click", () => {
   const cb = confirmCallback;
   hideConfirm();
   if (cb) cb();
+});
+
+let promptCallback = null;
+
+function showPrompt(message, defaultValue, onConfirm){
+  document.getElementById("promptMessage").textContent = message;
+  const inputEl = document.getElementById("promptInputVal");
+  inputEl.value = defaultValue;
+  promptCallback = onConfirm;
+  document.getElementById("promptModal").classList.remove("hidden");
+  setTimeout(() => inputEl.focus(), 100);
+}
+
+function hidePrompt(){
+  document.getElementById("promptModal").classList.add("hidden");
+  promptCallback = null;
+}
+
+document.getElementById("promptCancelBtn").addEventListener("click", hidePrompt);
+document.getElementById("promptConfirmBtn").addEventListener("click", () => {
+  const cb = promptCallback;
+  const val = document.getElementById("promptInputVal").value;
+  hidePrompt();
+  if (cb) cb(val);
 });
 
 function togglePasswordVisibility(inputId, btn){
