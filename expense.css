@@ -689,3 +689,28 @@ input:disabled{
   cursor: pointer;
 }
 .update-banner.hidden{ display: none; }
+.scroll-indicator{
+  position: absolute;
+  right: 0;
+  top: 15px;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+.scroll-indicator.hidden{
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}

@@ -1959,10 +1959,22 @@ async function enterApp(){
   const chipsEl = document.querySelector(".filter-chips");
   const indicatorEl = document.querySelector(".scroll-indicator");
   if (chipsEl && indicatorEl) {
-    chipsEl.addEventListener("scroll", () => {
-      const isEnd = chipsEl.scrollWidth - chipsEl.scrollLeft <= chipsEl.clientWidth + 10;
-      indicatorEl.style.opacity = isEnd ? "0" : "1";
-    });
+    const updateIndicator = () => {
+      const isScrollable = chipsEl.scrollWidth > chipsEl.clientWidth;
+      const isEnd = chipsEl.scrollWidth - chipsEl.scrollLeft <= chipsEl.clientWidth + 5;
+      if (isScrollable && !isEnd) {
+        indicatorEl.classList.remove("hidden");
+      } else {
+        indicatorEl.classList.add("hidden");
+      }
+    };
+    chipsEl.addEventListener("scroll", updateIndicator);
+    window.addEventListener("resize", updateIndicator);
+    indicatorEl.onclick = () => {
+      chipsEl.scrollBy({ left: 120, behavior: "smooth" });
+    };
+    // Check after rendering/loading finishes
+    setTimeout(updateIndicator, 200);
   }
   
   showScreen("dashboard");
