@@ -80,7 +80,7 @@ body{
 #screens{
   flex:1;
   overflow-y:auto;
-  padding: 40px 20px 100px;
+  padding: 40px 20px 160px;
   scrollbar-width:none;
 }
 #screens::-webkit-scrollbar{ display:none; }
