@@ -2075,16 +2075,16 @@ function initNotificationsForAllUsers() {
       const countEl = document.getElementById("notifCount");
       const dropdown = document.getElementById("notifDropdown");
       
-      // Calculate unread count based on last viewed notification ID
+      // Calculate unread count based on last checked timestamp
       let unreadCount = 0;
       if (notifs.length > 0) {
-        const lastViewed = localStorage.getItem("sika_last_viewed_notif_id");
-        if (!lastViewed) {
-          unreadCount = notifs.length;
-        } else {
-          const lastIdx = notifs.findIndex(n => n.id === lastViewed);
-          unreadCount = lastIdx === -1 ? notifs.length : lastIdx;
-        }
+        const lastChecked = Number(localStorage.getItem("sika_last_notif_checked_time") || "0");
+        notifs.forEach(n => {
+          const time = n.createdAt?.toDate ? n.createdAt.toDate().getTime() : Date.now();
+          if (time > lastChecked) {
+            unreadCount++;
+          }
+        });
       }
       
       if (countEl) { 
@@ -2152,9 +2152,9 @@ async function init(){
     if (dd) {
       const isOpening = dd.classList.contains("hidden");
       dd.classList.toggle("hidden");
-      if (isOpening && currentNotifications.length > 0) {
-        // Mark the newest notification as read
-        localStorage.setItem("sika_last_viewed_notif_id", currentNotifications[0].id);
+      if (isOpening) {
+        // Mark as read by saving current timestamp
+        localStorage.setItem("sika_last_notif_checked_time", Date.now().toString());
         const countEl = document.getElementById("notifCount");
         if (countEl) {
           countEl.style.display = "none";
