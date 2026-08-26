@@ -2097,6 +2097,21 @@ function initNotificationsForAllUsers() {
         if (typeof showBudgetToast === "function") {
           showBudgetToast(`New broadcast: ${notifs[0].title}`, "ok");
         }
+        if ("Notification" in window && Notification.permission === "granted" && localStorage.getItem("sika-notifications-enabled") !== "false") {
+          const title = notifs[0].title || "New Message";
+          const options = {
+            body: notifs[0].message || "",
+            icon: "icon-192.png",
+            tag: "sika-notif-" + notifs[0].id
+          };
+          if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+            navigator.serviceWorker.ready.then(swReg => {
+              swReg.showNotification(title, options);
+            });
+          } else {
+            new Notification(title, options);
+          }
+        }
       }
     });
 }
