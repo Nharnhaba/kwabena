@@ -1380,12 +1380,18 @@ async function startVoiceInput() {
       );
       
       if (matchedCat) {
+        const isIncome = INCOME_CATEGORIES.some(c => c.id === matchedCat.id);
+        setEntryType(isIncome ? "income" : "expense");
         selectCategory(matchedCat.id);
-        if (INCOME_CATEGORIES.find(c => c.id === matchedCat.id)) {
-          setEntryType("income");
-        } else {
-          setEntryType("expense");
-        }
+      }
+
+      // Parse Payment Method
+      if (text.includes("momo") || text.includes("mobile money")) {
+        setPaymentMethod("momo");
+      } else if (text.includes("cash")) {
+        setPaymentMethod("cash");
+      } else if (text.includes("bank") || text.includes("card")) {
+        setPaymentMethod("bank");
       }
       
       // Parse Note
