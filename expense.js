@@ -2059,18 +2059,37 @@ async function handleSendBroadcast() {
 }
 
 let notifListener = null;
+let currentNotifications = [];
+let isInitialNotifLoad = true;
+
 function initNotificationsForAllUsers() {
   if (notifListener) notifListener(); // unsubscribe
+  isInitialNotifLoad = true;
   notifListener = db.collection("notifications")
     .orderBy("createdAt", "desc")
     .limit(20)
     .onSnapshot((snap) => {
       const notifs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      currentNotifications = notifs;
+      
       const countEl = document.getElementById("notifCount");
       const dropdown = document.getElementById("notifDropdown");
+      
+      // Calculate unread count based on last viewed notification ID
+      let unreadCount = 0;
+      if (notifs.length > 0) {
+        const lastViewed = localStorage.getItem("sika_last_viewed_notif_id");
+        if (!lastViewed) {
+          unreadCount = notifs.length;
+        } else {
+          const lastIdx = notifs.findIndex(n => n.id === lastViewed);
+          unreadCount = lastIdx === -1 ? notifs.length : lastIdx;
+        }
+      }
+      
       if (countEl) { 
-        countEl.textContent = notifs.length; 
-        countEl.style.display = notifs.length > 0 ? "inline" : "none"; 
+        countEl.textContent = unreadCount; 
+        countEl.style.display = unreadCount > 0 ? "inline" : "none"; 
       }
       if (dropdown) {
         dropdown.innerHTML = notifs.length === 0 
@@ -2092,27 +2111,33 @@ function initNotificationsForAllUsers() {
             }).join("");
       }
       if (notifs.length > 0 && window.lastNotifId !== notifs[0].id) {
+        const oldNotifId = window.lastNotifId;
         window.lastNotifId = notifs[0].id;
-        console.log("New notification:", notifs[0].title);
-        if (typeof showBudgetToast === "function") {
-          showBudgetToast(`New broadcast: ${notifs[0].title}`, "ok");
-        }
-        if ("Notification" in window && Notification.permission === "granted" && localStorage.getItem("sika-notifications-enabled") !== "false") {
-          const title = notifs[0].title || "New Message";
-          const options = {
-            body: notifs[0].message || "",
-            icon: "icon-192.png",
-            tag: "sika-notif-" + notifs[0].id
-          };
-          if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-            navigator.serviceWorker.ready.then(swReg => {
-              swReg.showNotification(title, options);
-            });
-          } else {
-            new Notification(title, options);
+        
+        // Only trigger alerts for subsequent new notifications in the same session
+        if (!isInitialNotifLoad && oldNotifId) {
+          console.log("New notification:", notifs[0].title);
+          if (typeof showBudgetToast === "function") {
+            showBudgetToast(`New broadcast: ${notifs[0].title}`, "ok");
+          }
+          if ("Notification" in window && Notification.permission === "granted" && localStorage.getItem("sika-notifications-enabled") !== "false") {
+            const title = notifs[0].title || "New Message";
+            const options = {
+              body: notifs[0].message || "",
+              icon: "icon-192.png",
+              tag: "sika-notif-" + notifs[0].id
+            };
+            if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+              navigator.serviceWorker.ready.then(swReg => {
+                swReg.showNotification(title, options);
+              });
+            } else {
+              new Notification(title, options);
+            }
           }
         }
       }
+      isInitialNotifLoad = false;
     });
 }
 
@@ -2125,10 +2150,16 @@ async function init(){
     e.stopPropagation();
     const dd = document.getElementById("notifDropdown");
     if (dd) {
-      if (dd.classList.contains("hidden")) {
-        dd.classList.remove("hidden");
-      } else {
-        dd.classList.add("hidden");
+      const isOpening = dd.classList.contains("hidden");
+      dd.classList.toggle("hidden");
+      if (isOpening && currentNotifications.length > 0) {
+        // Mark the newest notification as read
+        localStorage.setItem("sika_last_viewed_notif_id", currentNotifications[0].id);
+        const countEl = document.getElementById("notifCount");
+        if (countEl) {
+          countEl.style.display = "none";
+          countEl.textContent = "0";
+        }
       }
     }
   });
