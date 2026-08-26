@@ -476,14 +476,21 @@ function getCategoryList(type){
 function getCategoryAny(id, type){
   return getCategoryList(type).find(c => c.id === id) || { name: "Other", emoji: "•" };
 }
+function parseLocalDate(dateStr) {
+  if (!dateStr) return new Date();
+  if (dateStr instanceof Date) return dateStr;
+  const parts = String(dateStr).split("-");
+  if (parts.length < 3) return new Date(dateStr);
+  return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+}
 function isThisMonth(dateStr){
-  const d = new Date(dateStr), now = new Date();
+  const d = parseLocalDate(dateStr), now = new Date();
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
 function isLastMonth(dateStr){
   const { start, end } = getLastMonthRange();
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
   return d >= start && d <= end;
 }
 
@@ -511,19 +518,19 @@ function getWeekStart(refDate, offsetWeeks = 0){
 }
 
 function isToday(dateStr) {
-  const d = new Date(dateStr), now = new Date();
+  const d = parseLocalDate(dateStr), now = new Date();
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
 }
 
 function isYesterday(dateStr) {
-  const d = new Date(dateStr), now = new Date();
+  const d = parseLocalDate(dateStr), now = new Date();
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
   return d.getFullYear() === yesterday.getFullYear() && d.getMonth() === yesterday.getMonth() && d.getDate() === yesterday.getDate();
 }
 
 function isThisWeek(dateStr){
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
   const start = getWeekStart(new Date(), 0);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
@@ -532,7 +539,7 @@ function isThisWeek(dateStr){
 }
 
 function isLastWeek(dateStr){
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
   const start = getWeekStart(new Date(), -1);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
@@ -540,7 +547,7 @@ function isLastWeek(dateStr){
   return d >= start && d <= end;
 }
 function formatDateLabel(dateStr){
-  const d = new Date(dateStr), now = new Date();
+  const d = parseLocalDate(dateStr), now = new Date();
 
   const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
