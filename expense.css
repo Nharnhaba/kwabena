@@ -315,10 +315,25 @@ p.page-sub{
 .badge-cash{ background: var(--green-dim); color: var(--green); }
 .badge-bank{ background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
 .ticket-del{
-  background:none; border:none; color: var(--text-muted); cursor:pointer;
-  font-size: 16px; padding: 4px; flex-shrink:0;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor:pointer;
+  font-size: 11px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink:0;
+  transition: all 0.15s ease;
 }
-.ticket-del:hover{ color: var(--coral); }
+.ticket-del:hover{
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--coral);
+  color: var(--coral);
+}
 
 .empty-state{
   text-align:center; padding: 30px 10px; color: var(--text-muted); font-size:13px;
@@ -523,10 +538,25 @@ input:disabled{
 
 .ticket-actions{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
 .ticket-edit{
-  background:none; border:none; color: var(--text-muted); cursor:pointer;
-  font-size: 14px; padding: 3px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor:pointer;
+  font-size: 11px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink:0;
+  transition: all 0.15s ease;
 }
-.ticket-edit:hover{ color: var(--gold); }
+.ticket-edit:hover{
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  color: var(--gold);
+}
 
 .secondary-btn{
   width:100%;
