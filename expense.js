@@ -1147,8 +1147,8 @@ function renderDashboard(){
           <span class="ticket-badge ${badgeClass}">${badgeLabel}</span>
         </div>
         <div class="ticket-actions">
-          <button class="ticket-edit" onclick="editExpense(${e.id})" aria-label="Edit">✎</button>
-          <button class="ticket-del" onclick="deleteExpense(${e.id})" aria-label="Delete">✕</button>
+          <button class="ticket-edit" onclick="editExpense(${e.id})">Edit</button>
+          <button class="ticket-del" onclick="deleteExpense(${e.id})">Delete</button>
         </div>
       </div>`;
   }).join("");
