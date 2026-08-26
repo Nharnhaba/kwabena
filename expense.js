@@ -448,24 +448,10 @@ async function promptSetDailyBudget(event) {
     renderDashboard();
   });
 }
-
-function toggleRateInput(){
-  const currency = document.getElementById("currencyInput").value;
-  const rateRow = document.getElementById("rateRow");
-  if (currency === "GHS"){
-    rateRow.classList.add("hidden");
-  } else {
-    rateRow.classList.remove("hidden");
-    document.getElementById("rateCurrencyLabel").textContent = currency;
-  }
-}
-
-function formatMoney(n, currency = "GHS"){
-  const symbols = { GHS: "₵", USD: "$", GBP: "£", EUR: "€" };
-  const symbol = symbols[currency] || "₵";
+function formatMoney(n){
   const value = Number(n);
   const safe = Number.isFinite(value) ? value : 0;
-  return symbol + safe.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return "₵" + safe.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function getCategory(id){
   return CATEGORIES.find(c => c.id === id) || { name: "Other", emoji: "•" };
@@ -1154,7 +1140,7 @@ function renderDashboard(){
         <div class="ticket-icon">${cat.emoji}</div>
         <div class="ticket-body">
           <div class="ticket-cat">${cat.name}</div>
-          <div class="ticket-note">${e.note || formatDateLabel(e.date)}${e.originalCurrency && e.originalCurrency !== "GHS" ? ` · ${formatMoney(e.originalAmount, e.originalCurrency)}` : ""}</div>
+          <div class="ticket-note">${e.note || formatDateLabel(e.date)}</div>
         </div>
         <div class="ticket-right">
           <div class="${amountClass}">${sign}${formatMoney(e.amount)}</div>
@@ -1450,15 +1436,14 @@ async function saveExpense(){
   const btn = document.getElementById("saveBtn");
   const isRecurring = document.getElementById("recurringCheckbox")?.checked;
   const frequency = document.getElementById("recurringFrequency")?.value;
-  const currency = document.getElementById("currencyInput")?.value || "GHS";
-  const rate = currency === "GHS" ? 1 : parseFloat(document.getElementById("rateInput").value);
+  const currency = "GHS";
+  const rate = 1;
   const householdId = currentUser.householdId || currentUser.username;
 
   if (!amount || amount <= 0){ alert("Enter an amount."); return; }
   if (!selectedCategoryId){ alert(selectedType === "income" ? "Pick a source." : "Pick a category."); return; }
-  if (currency !== "GHS" && (!rate || rate <= 0)){ alert("Enter the exchange rate."); return; }
 
-  const amountGHS = amount * rate;
+  const amountGHS = amount;
 
   const wasEditing = !!editingExpenseId;
   btn.disabled = true;
@@ -1624,7 +1609,7 @@ function renderRecurringScreen(){
           <span class="budget-card-name">${cat.name || "Uncategorized"}</span>
           <button class="secondary-btn" style="padding:6px 12px" onclick="deleteRecurringTemplate('${idAttr}')">Delete</button>
         </div>
-        <div class="budget-status">${freqLabel} · ${formatMoney(t.amount ?? t.amountGHS, t.currency)}${note} · next on ${next}</div>
+        <div class="budget-status">${freqLabel} · ${formatMoney(t.amount)}${note} · next on ${next}</div>
       </div>
     `;
     }).join("");
