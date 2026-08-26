@@ -2069,7 +2069,25 @@ function initNotificationsForAllUsers() {
     .orderBy("createdAt", "desc")
     .limit(20)
     .onSnapshot((snap) => {
-      const notifs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      let notifs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      
+      // Auto‑remove notifications that were viewed >24h ago
+      const now = Date.now();
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      const toDelete = [];
+      notifs.forEach(n => {
+        const viewed = Number(localStorage.getItem(`viewed_${n.id}`) || '0');
+        if (viewed && (now - viewed) > DAY_MS) {
+          toDelete.push(n.id);
+        }
+      });
+      if (toDelete.length) {
+        const batch = db.batch();
+        toDelete.forEach(id => batch.delete(db.collection('notifications').doc(id)));
+        batch.commit().catch(err => console.error('Failed to auto‑remove old notifications', err));
+        // remove from local array
+        notifs = notifs.filter(n => !toDelete.includes(n.id));
+      }
       currentNotifications = notifs;
       
       const countEl = document.getElementById("notifCount");
@@ -2100,7 +2118,7 @@ function initNotificationsForAllUsers() {
               if (n.type === "warning") badgeColor = "var(--coral)";
               if (n.type === "promo") badgeColor = "var(--green)";
               return `
-                <div style="padding:10px; border-bottom:1px solid var(--border); margin-bottom:8px;">
+                <div data-notif-id="${n.id}" style="padding:10px; border-bottom:1px solid var(--border); margin-bottom:8px;">
                   <b style="color:var(--text-primary); font-size:13px;">${n.title}</b>
                   <br/>
                   <small style="color:${badgeColor}; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.02em;">${n.type}</small>
@@ -2109,7 +2127,39 @@ function initNotificationsForAllUsers() {
                 </div>
               `;
             }).join("");
+            
+        // Add Clear All button at top of dropdown
+        const clearBtn = document.createElement('button');
+        clearBtn.textContent = 'Clear All';
+        clearBtn.style.cssText = 'width:100%; padding:6px; margin-bottom:8px; background:var(--surface); color:var(--text-primary); border:none; cursor:pointer;';
+        clearBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            const snap = await db.collection('notifications').get();
+            const batch = db.batch();
+            snap.docs.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            // also clear viewed timestamps
+            snap.docs.forEach(doc => localStorage.removeItem(`viewed_${doc.id}`));
+            dropdown.innerHTML = '';
+            countEl.textContent = '0';
+            countEl.style.display = 'none';
+          } catch (err) {
+            console.error('Failed to clear notifications:', err);
+          }
+        });
+        dropdown.prepend(clearBtn);
+
+        // Track view time when a notification is clicked
+        dropdown.addEventListener('click', (e) => {
+          const item = e.target.closest('div[data-notif-id]');
+          if (item) {
+            const id = item.dataset.notifId;
+            localStorage.setItem(`viewed_${id}`, Date.now().toString());
+          }
+        });
       }
+      
       if (notifs.length > 0 && window.lastNotifId !== notifs[0].id) {
         const oldNotifId = window.lastNotifId;
         window.lastNotifId = notifs[0].id;
