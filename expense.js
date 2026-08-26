@@ -50,6 +50,7 @@ let pendingUpdateReg = null;
 function showUpdateBanner(reg){
   pendingUpdateReg = reg;
   document.getElementById("updateBanner").classList.remove("hidden");
+  document.getElementById("updateBtn").onclick = applyUpdate;
 
   // Show native system notification if supported and allowed
   if ("Notification" in window && Notification.permission === "granted" && localStorage.getItem("sika-notifications-enabled") !== "false") {
