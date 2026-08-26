@@ -1,3 +1,13 @@
+const SUPER_ADMIN_DOC_ID = "nharnhaba";
+function getCurrentUser() {
+  try { return JSON.parse(localStorage.getItem("sika_currentUser") || "null"); } catch(e) { return null; }
+}
+function isSuperAdmin() {
+  const u = getCurrentUser();
+  if (!u) return false;
+  return u.id === SUPER_ADMIN_DOC_ID || u.docId === SUPER_ADMIN_DOC_ID || u.username?.toLowerCase() === SUPER_ADMIN_DOC_ID || u.isAdmin === true;
+}
+
 const CATEGORIES = [
   { id: "food",      name: "Food",            emoji: "🍛" },
   { id: "transport", name: "Transport/Trotro", emoji: "🚌" },
@@ -592,6 +602,8 @@ async function loginUser(){
     recurringTemplates = await loadRecurringForUser(currentUser.username, householdId);
     await processRecurringEntries();
     localStorage.setItem(SESSION_KEY, username);
+    const userToSave = { id: username, docId: username, username: currentUser.username, displayUsername: currentUser.displayUsername, name: currentUser.name, isAdmin: currentUser.isAdmin === true || username === 'nharnhaba', usernameLower: username.toLowerCase() };
+    localStorage.setItem("sika_currentUser", JSON.stringify(userToSave));
     enterApp();
   } catch (err) {
     console.error(err); errorEl.textContent = err.message || "Incorrect username or password.";
@@ -652,6 +664,8 @@ async function registerUser(){
     expenses = await loadExpensesForHousehold(householdId);
     recurringTemplates = [];
     localStorage.setItem(SESSION_KEY, username);
+    const userToSave = { id: username, docId: username, username, displayUsername, name, isAdmin: username === 'nharnhaba', usernameLower: username.toLowerCase() };
+    localStorage.setItem("sika_currentUser", JSON.stringify(userToSave));
     enterApp();
   } catch (err) {
     console.error(err); errorEl.textContent = err.message || "Couldn't create your account. Try again.";
@@ -662,11 +676,20 @@ async function registerUser(){
 
 function logoutUser(){
   localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem("sika_currentUser");
   currentUser = null;
   expenses = [];
   recurringTemplates = [];
   debts = [];
   budgets = {};
+  if (typeof notifListener === "function") {
+    notifListener();
+    notifListener = null;
+  }
+  const bellWrap = document.getElementById("notificationBellWrap");
+  if (bellWrap) bellWrap.style.display = "none";
+  const panel = document.getElementById("adminBroadcastPanel");
+  if (panel) panel.style.display = "none";
   document.getElementById("loginUsername").value = "";
   document.getElementById("loginPassword").value = "";
   resetRegisterForm();
@@ -1992,16 +2015,123 @@ async function enterApp(){
     setTimeout(updateIndicator, 200);
   }
   
+  const bellWrap = document.getElementById("notificationBellWrap");
+  if (bellWrap) bellWrap.style.display = "block";
+  initAdminPanel();
+  initNotificationsForAllUsers();
+
   showScreen("dashboard");
+}
+
+function initAdminPanel() {
+  const panel = document.getElementById("adminBroadcastPanel");
+  if (!panel) return;
+  panel.style.display = isSuperAdmin() ? "block" : "none";
+}
+
+async function handleSendBroadcast() {
+  if (!isSuperAdmin()) { alert("Only Nharnhaba can send"); return; }
+  const title = document.getElementById("broadcastTitle").value.trim();
+  const message = document.getElementById("broadcastMessage").value.trim();
+  const type = document.getElementById("broadcastType").value;
+  if (!title || !message) { alert("Fill title and message"); return; }
+  const btn = document.getElementById("sendBroadcastBtn");
+  btn.textContent = "Sending..."; btn.disabled = true;
+  try {
+    await db.collection("notifications").add({
+      title,
+      message,
+      type,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdByDocId: SUPER_ADMIN_DOC_ID,
+      createdByName: getCurrentUser()?.name || "Admin"
+    });
+    const statusEl = document.getElementById("broadcastStatus");
+    statusEl.style.display = "block";
+    statusEl.textContent = "Broadcast sent to all users!";
+    document.getElementById("broadcastTitle").value = ""; 
+    document.getElementById("broadcastMessage").value = "";
+    setTimeout(() => { statusEl.style.display = "none"; }, 4000);
+  } catch(e) { 
+    alert("Error: " + e.message); 
+  }
+  btn.textContent = "Broadcast to All Users"; btn.disabled = false;
+}
+
+let notifListener = null;
+function initNotificationsForAllUsers() {
+  if (notifListener) notifListener(); // unsubscribe
+  notifListener = db.collection("notifications")
+    .orderBy("createdAt", "desc")
+    .limit(20)
+    .onSnapshot((snap) => {
+      const notifs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      const countEl = document.getElementById("notifCount");
+      const dropdown = document.getElementById("notifDropdown");
+      if (countEl) { 
+        countEl.textContent = notifs.length; 
+        countEl.style.display = notifs.length > 0 ? "inline" : "none"; 
+      }
+      if (dropdown) {
+        dropdown.innerHTML = notifs.length === 0 
+          ? "<p style='color:var(--text-muted); text-align:center; margin:10px 0;'>No notifications yet</p>" 
+          : notifs.map(n => {
+              const timeStr = n.createdAt?.toDate ? n.createdAt.toDate().toLocaleString() : 'just now';
+              let badgeColor = "var(--gold)";
+              if (n.type === "warning") badgeColor = "var(--coral)";
+              if (n.type === "promo") badgeColor = "var(--green)";
+              return `
+                <div style="padding:10px; border-bottom:1px solid var(--border); margin-bottom:8px;">
+                  <b style="color:var(--text-primary); font-size:13px;">${n.title}</b>
+                  <br/>
+                  <small style="color:${badgeColor}; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.02em;">${n.type}</small>
+                  <small style="color:var(--text-muted); font-size:10px; margin-left:6px;">• ${timeStr}</small>
+                  <p style="margin:6px 0 0 0; color:var(--text-secondary); font-size:12px; line-height:1.4;">${n.message}</p>
+                </div>
+              `;
+            }).join("");
+      }
+      if (notifs.length > 0 && window.lastNotifId !== notifs[0].id) {
+        window.lastNotifId = notifs[0].id;
+        console.log("New notification:", notifs[0].title);
+        if (typeof showBudgetToast === "function") {
+          showBudgetToast(`New broadcast: ${notifs[0].title}`, "ok");
+        }
+      }
+    });
 }
 
 async function init(){
   loadTheme();
+  
+  // Notification UI listeners
+  document.getElementById("sendBroadcastBtn")?.addEventListener("click", handleSendBroadcast);
+  document.getElementById("notifBell")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const dd = document.getElementById("notifDropdown");
+    if (dd) {
+      if (dd.classList.contains("hidden")) {
+        dd.classList.remove("hidden");
+      } else {
+        dd.classList.add("hidden");
+      }
+    }
+  });
+  document.addEventListener("click", () => {
+    const dd = document.getElementById("notifDropdown");
+    if (dd) dd.classList.add("hidden");
+  });
+  const notifDropdown = document.getElementById("notifDropdown");
+  if (notifDropdown) {
+    notifDropdown.addEventListener("click", (e) => e.stopPropagation());
+  }
   const savedUsername = localStorage.getItem(SESSION_KEY);
   if (savedUsername){
     try {
            currentUser = await getUser(savedUsername);
       if (!currentUser) throw new Error("Session user not found");
+      const userToSave = { id: savedUsername, docId: savedUsername, username: currentUser.username, displayUsername: currentUser.displayUsername, name: currentUser.name, isAdmin: currentUser.isAdmin === true || savedUsername === 'nharnhaba', usernameLower: savedUsername.toLowerCase() };
+      localStorage.setItem("sika_currentUser", JSON.stringify(userToSave));
       if (!currentUser.displayUsername){
         currentUser.displayUsername = savedUsername;
         await db.collection("users").doc(savedUsername).update({ displayUsername: savedUsername });

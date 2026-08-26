@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Sika — Expense Tracker</title>
-<meta name="app-version" content="1.1.8" />
+<meta name="app-version" content="1.1.9" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -19,6 +19,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 </head>
 <body>
+
+  <div id="notificationBellWrap" style="display:none; position:fixed; top:16px; right:16px; z-index:9999;">
+    <button id="notifBell" style="position:relative; background:var(--surface); color:var(--text-primary); border:1px solid var(--border); border-radius:50%; width:44px; height:44px; font-size:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.25); transition:transform 0.15s ease;">
+      🔔
+      <span id="notifCount" style="display:none; background:var(--coral); color:white; border-radius:50%; padding:2px 6px; font-size:10px; font-weight:bold; position:absolute; top:0; right:0; transform:translate(20%, -20%);">0</span>
+    </button>
+    <div id="notifDropdown" class="hidden" style="position:absolute; right:0; top:52px; width:320px; max-height:400px; overflow-y:auto; background:var(--surface-raised); border:1px solid var(--border-strong); border-radius:var(--radius-md); padding:12px; box-shadow:0 10px 25px rgba(0,0,0,0.4); z-index: 10000;"></div>
+  </div>
 
 
   <div id="loadingOverlay">
@@ -301,6 +309,19 @@
      <button class="reg-btn" id="profileSaveBtn" onclick="saveProfileChanges()">Save changes</button>
       <div class="reg-error" id="profileError"></div>
       <div class="reg-error" id="profileSuccess" style="color:var(--green)"></div>
+
+      <div id="adminBroadcastPanel" style="display:none; background:var(--surface-raised); border:1px solid var(--gold-dim); padding:16px; border-radius:var(--radius-md); margin:16px 0;">
+        <h3 style="color:var(--gold); font-family:var(--font-display); margin-top:0;">📢 Admin Broadcast (Only for Nharnhaba)</h3>
+        <input id="broadcastTitle" placeholder="Title (e.g., New Feature!)" style="width:100%; margin:8px 0; padding:10px; background:var(--bg-soft); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius-sm);" />
+        <textarea id="broadcastMessage" placeholder="Message to all users..." style="width:100%; margin:8px 0; padding:10px; min-height:80px; background:var(--bg-soft); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius-sm); font-family:var(--font-body);"></textarea>
+        <select id="broadcastType" style="width:100%; padding:10px; margin:8px 0; background:var(--bg-soft); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius-sm);">
+          <option value="info">Info</option>
+          <option value="warning">Warning</option>
+          <option value="promo">Promo</option>
+        </select>
+        <button id="sendBroadcastBtn" style="background:var(--gold); color:black; padding:12px; width:100%; border:none; border-radius:var(--radius-sm); font-weight:bold; cursor:pointer; font-family:var(--font-display);">Broadcast to All Users</button>
+        <p id="broadcastStatus" style="color:var(--green); display:none; margin-top:8px; font-weight:600;"></p>
+      </div>
 
       <div class="danger-zone">
         <div class="section-label">Danger zone</div>
