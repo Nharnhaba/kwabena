@@ -30,11 +30,30 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // Only handle GET requests
+  if (event.request.method !== "GET") return;
+
+  const url = new URL(event.request.url);
+
+  // Only handle http/https requests
+  if (!url.protocol.startsWith("http")) return;
+
+  // Do not intercept Firestore api requests
+  if (url.hostname.includes("firestore.googleapis.com") || url.hostname.includes("googleapis.com")) {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        // Cache successful responses from our own origin or trusted CDNs (like gstatic for firebase compat libs)
+        const isSelfOrigin = url.origin === self.location.origin;
+        const isGstatic = url.hostname === "www.gstatic.com";
+        
+        if (response && response.status === 200 && (isSelfOrigin || isGstatic)) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
         return response;
       })
       .catch(() => caches.match(event.request))

@@ -12,3 +12,12 @@ db.settings({
   experimentalAutoDetectLongPolling: true,
   useFetchStreams: false
 });
+
+// Enable Firestore offline persistence
+db.enablePersistence().catch((err) => {
+  if (err.code === "failed-precondition") {
+    console.warn("Firestore offline persistence failed: Multiple tabs open.");
+  } else if (err.code === "unimplemented") {
+    console.warn("Firestore offline persistence failed: Browser not supported.");
+  }
+});
