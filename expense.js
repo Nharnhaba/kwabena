@@ -366,12 +366,20 @@ async function loadDebtsForAccount(username, householdId){
   return Array.from(byId.values());
 }
 
+function handleWriteError(err, contextMessage) {
+  console.error(contextMessage, err);
+  if (err && err.code === "permission-denied") {
+    alert("Permission denied. You do not have permissions to perform this operation.");
+  } else {
+    console.warn("Write queued locally: Will synchronize once internet connection is restored.");
+  }
+}
+
 async function addDebtToDB(debt){
   try {
     await db.collection("debts").doc(String(debt.id)).set(debt);
   } catch (err) {
-    console.error("Failed to save debt:", err);
-    alert("Couldn't save that debt. Check your internet connection.");
+    handleWriteError(err, "Failed to save debt");
   }
 }
 
@@ -379,8 +387,7 @@ async function deleteDebtFromDB(id){
   try {
     await db.collection("debts").doc(String(id)).delete();
   } catch (err) {
-    console.error("Failed to delete debt:", err);
-    alert("Couldn't settle that debt. Check your internet connection.");
+    handleWriteError(err, "Failed to delete debt");
   }
 }
 
@@ -388,16 +395,14 @@ async function addExpenseToDB(expense){
   try {
     await db.collection("expenses").doc(String(expense.id)).set(expense);
   } catch (err) {
-    console.error("Failed to save expense:", err);
-    alert("Couldn't save that entry. Check your internet connection and try again.");
+    handleWriteError(err, "Failed to save expense");
   }
 }
 async function addRecurringToDB(template){
   try {
     await db.collection("recurring").doc(String(template.id)).set(template);
   } catch (err) {
-    console.error("Failed to save recurring template:", err);
-    alert("Couldn't save that recurring entry. Check your internet connection and try again.");
+    handleWriteError(err, "Failed to save recurring template");
   }
 }
 
@@ -405,8 +410,7 @@ async function updateRecurringInDB(template){
   try {
     await db.collection("recurring").doc(String(template.id)).set(template);
   } catch (err) {
-    console.error("Failed to update recurring template:", err);
-    alert("Couldn't update that recurring entry. Check your internet connection and try again.");
+    handleWriteError(err, "Failed to update recurring template");
   }
 }
 
@@ -414,8 +418,7 @@ async function deleteRecurringFromDB(id){
   try {
     await db.collection("recurring").doc(String(id)).delete();
   } catch (err) {
-    console.error("Failed to delete recurring template:", err);
-    alert("Couldn't delete that recurring entry. Check your internet connection.");
+    handleWriteError(err, "Failed to delete recurring template");
   }
 }
 
@@ -428,8 +431,7 @@ async function saveRecurringTemplatesToDB(templates){
     });
     await batch.commit();
   } catch (err) {
-    console.error("Failed to save recurring templates:", err);
-    alert("Couldn't sync recurring entries. Check your internet connection and try again.");
+    handleWriteError(err, "Failed to save recurring templates");
   }
 }
 
@@ -437,8 +439,7 @@ async function updateExpenseInDB(expense){
   try {
     await db.collection("expenses").doc(String(expense.id)).set(expense);
   } catch (err) {
-    console.error("Failed to update expense:", err);
-    alert("Couldn't save changes. Check your internet connection and try again.");
+    handleWriteError(err, "Failed to update expense");
   }
 }
 
@@ -446,8 +447,7 @@ async function deleteExpenseFromDB(id){
   try {
     await db.collection("expenses").doc(String(id)).delete();
   } catch (err) {
-    console.error("Failed to delete expense:", err);
-    alert("Couldn't delete that entry. Check your internet connection.");
+    handleWriteError(err, "Failed to delete expense");
   }
 }
 
@@ -465,8 +465,7 @@ async function saveBudgetsForUser(username, budgetData){
   try {
     await db.collection("budgets").doc(username).set(budgetData);
   } catch (err) {
-    console.error("Failed to save budgets:", err);
-    alert("Couldn't save budget. Check your connection and try again.");
+    handleWriteError(err, "Failed to save budgets");
   }
 }
 
@@ -485,7 +484,7 @@ async function promptSetDailyBudget(event) {
       showBudgetToast(`Custom daily budget set to ₵${parsed.toFixed(2)}.`, "ok");
     }
     
-    await saveBudgetsForUser(currentUser.username, budgets);
+    saveBudgetsForUser(currentUser.username, budgets);
     renderDashboard();
   });
 }
@@ -1264,7 +1263,7 @@ function setQuickFilter(mode){
 function deleteExpense(id){
   showConfirm("Delete this expense?", async () => {
     expenses = expenses.filter(e => e.id !== id);
-    await deleteExpenseFromDB(id);
+    deleteExpenseFromDB(id);
     renderDashboard();
     renderCategories();
   });
@@ -1559,15 +1558,15 @@ async function saveExpense(){
         } else {
           recurringTemplates.push(updatedTemplate);
         }
-        await updateRecurringInDB(updatedTemplate);
+        updateRecurringInDB(updatedTemplate);
       } else {
         recurringTemplates.push(updatedTemplate);
-        await addRecurringToDB(updatedTemplate);
+        addRecurringToDB(updatedTemplate);
       }
     } else {
       if (existingExpense.isRecurring && templateId) {
         recurringTemplates = recurringTemplates.filter(t => String(t.id) !== String(templateId));
-        await deleteRecurringFromDB(templateId);
+        deleteRecurringFromDB(templateId);
       }
       templateId = null;
     }
@@ -1588,7 +1587,7 @@ async function saveExpense(){
       recurringId: templateId
     };
     expenses[idx] = updatedExpense;
-    await updateExpenseInDB(updatedExpense);
+    updateExpenseInDB(updatedExpense);
   } else {
     const newExpense = {
       id: Date.now(),
@@ -1627,10 +1626,10 @@ async function saveExpense(){
       };
       newExpense.recurringId = templateId;
       recurringTemplates.push(template);
-      await addRecurringToDB(template);
+      addRecurringToDB(template);
     }
     expenses.push(newExpense);
-    await addExpenseToDB(newExpense);
+    addExpenseToDB(newExpense);
     if (selectedType === "expense") checkBudgetAlert(selectedCategoryId);
   }
 
@@ -1696,7 +1695,7 @@ function renderRecurringScreen(){
 function deleteRecurringTemplate(id){
   showConfirm("Stop this recurring entry? Past entries it already created will stay.", async () => {
     recurringTemplates = recurringTemplates.filter(t => String(t.id) !== String(id));
-    await deleteRecurringFromDB(id);
+    deleteRecurringFromDB(id);
     renderRecurringScreen();
   });
 }
@@ -1778,7 +1777,7 @@ async function addNewDebt(){
   };
   
   debts.push(newDebt);
-  await addDebtToDB(newDebt);
+  addDebtToDB(newDebt);
   
   nameEl.value = "";
   amountEl.value = "";
@@ -1791,7 +1790,7 @@ async function addNewDebt(){
 function settleDebt(id){
   showConfirm("Mark this debt as settled?", async () => {
     debts = debts.filter(d => String(d.id) !== String(id));
-    await deleteDebtFromDB(id);
+    deleteDebtFromDB(id);
     renderDebtsScreen();
   });
 }
@@ -1869,7 +1868,7 @@ async function setBudget(categoryId, value){
   } else {
     budgets[categoryId] = amount;
   }
-  await saveBudgetsForUser(currentUser.username, budgets);
+  saveBudgetsForUser(currentUser.username, budgets);
   renderBudgetsScreen();
 }
 

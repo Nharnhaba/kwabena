@@ -14,11 +14,7 @@ db.settings({
   merge: true
 });
 
-// Enable Firestore offline persistence
-db.enablePersistence().catch((err) => {
-  if (err.code === "failed-precondition") {
-    console.warn("Firestore offline persistence failed: Multiple tabs open.");
-  } else if (err.code === "unimplemented") {
-    console.warn("Firestore offline persistence failed: Browser not supported.");
-  }
+// Enable Firestore multi-tab offline persistence
+db.enableMultiTabIndexedDbPersistence().catch((err) => {
+  console.warn("Firestore multi-tab persistence failed to enable:", err);
 });
