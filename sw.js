@@ -1,4 +1,4 @@
-const CACHE_NAME = "sika-cache-v49";
+const CACHE_NAME = "sika-cache-v50";
 const ASSETS = [
   "./",
   "./index.html",

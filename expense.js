@@ -2268,24 +2268,70 @@ async function init(){
   const savedUsername = localStorage.getItem(SESSION_KEY);
   if (savedUsername){
     try {
-           currentUser = await getUser(savedUsername);
-      if (!currentUser) throw new Error("Session user not found");
-      const userToSave = { id: savedUsername, docId: savedUsername, username: currentUser.username, displayUsername: currentUser.displayUsername, name: currentUser.name, isAdmin: currentUser.isAdmin === true || savedUsername === 'nharnhaba', usernameLower: savedUsername.toLowerCase() };
-      localStorage.setItem("sika_currentUser", JSON.stringify(userToSave));
+      // 1. Immediately restore session from local storage to allow instant offline startup
+      const localUserData = localStorage.getItem("sika_currentUser");
+      if (localUserData) {
+        currentUser = JSON.parse(localUserData);
+      }
+
+      // 2. Attempt to refresh user doc from database in the background
+      try {
+        const dbUser = await getUser(savedUsername);
+        if (dbUser) {
+          currentUser = dbUser;
+          const userToSave = { 
+            id: savedUsername, 
+            docId: savedUsername, 
+            username: currentUser.username, 
+            displayUsername: currentUser.displayUsername, 
+            name: currentUser.name, 
+            isAdmin: currentUser.isAdmin === true || savedUsername === 'nharnhaba', 
+            usernameLower: savedUsername.toLowerCase() 
+          };
+          localStorage.setItem("sika_currentUser", JSON.stringify(userToSave));
+        }
+      } catch (dbErr) {
+        console.warn("Could not refresh user doc from Firestore (offline?):", dbErr);
+        if (!currentUser) throw dbErr; // Fail only if we have no local cache at all
+      }
+
       if (!currentUser.displayUsername){
         currentUser.displayUsername = savedUsername;
-        await db.collection("users").doc(savedUsername).update({ displayUsername: savedUsername });
+        db.collection("users").doc(savedUsername).update({ displayUsername: savedUsername })
+          .catch(err => console.warn("Failed to update displayUsername offline:", err));
       }
+      
       const householdId = householdIdOf(currentUser);
-      expenses = await loadExpensesForAccount(currentUser.username, householdId);
-      recurringTemplates = await loadRecurringForUser(currentUser.username, householdId);
-      await processRecurringEntries();
+      
+      // 3. Load data with offline fallback tolerance
+      try {
+        expenses = await loadExpensesForAccount(currentUser.username, householdId);
+      } catch (e) {
+        console.warn("Failed to load expenses offline, using empty list:", e);
+        expenses = [];
+      }
+
+      try {
+        recurringTemplates = await loadRecurringForUser(currentUser.username, householdId);
+      } catch (e) {
+        console.warn("Failed to load recurring templates offline, using empty list:", e);
+        recurringTemplates = [];
+      }
+
+      try {
+        await processRecurringEntries();
+      } catch (e) {
+        console.warn("Failed to process recurring entries:", e);
+      }
+
       await enterApp();
+      
       const params = new URLSearchParams(window.location.search);
       const action = params.get("action");
       if (action === "add") showScreen("add");
       if (action === "summary") showScreen("summary");
     } catch (err) {
+      console.error("Startup session restore failed:", err);
       localStorage.removeItem(SESSION_KEY);
       showScreen("login");
     }
