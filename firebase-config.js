@@ -15,6 +15,6 @@ db.settings({
 });
 
 // Enable Firestore multi-tab offline persistence
-db.enableMultiTabIndexedDbPersistence().catch((err) => {
+db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
   console.warn("Firestore multi-tab persistence failed to enable:", err);
 });
