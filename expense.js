@@ -1812,6 +1812,135 @@ function settleDebt(id){
   });
 }
 
+function startDebtVoiceInput() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert("Speech recognition is not supported in this browser. Please try Google Chrome or Safari.");
+    return;
+  }
+
+  const btn = document.getElementById("debtVoiceBtn");
+  if (!btn) return;
+
+  // Toggle/Stop if clicked while listening
+  if (btn.classList.contains("listening")) {
+    if (window.activeDebtRecognition) {
+      window.activeDebtRecognition.abort();
+    }
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  window.activeDebtRecognition = recognition;
+
+  recognition.onstart = () => {
+    btn.classList.add("listening");
+    btn.innerHTML = `<span class="mic-icon">🎙️</span> Listening…`;
+    showBudgetToast("Listening! Speak now (e.g. 'Lent Abena 50 Cedis for lunch')", "ok");
+  };
+
+  recognition.onerror = (e) => {
+    console.error("Speech recognition error:", e);
+    showBudgetToast("Voice input failed or timed out.", "warn");
+  };
+
+  recognition.onend = () => {
+    btn.classList.remove("listening");
+    btn.innerHTML = `<span class="mic-icon">🎙️</span> Voice Fill`;
+    window.activeDebtRecognition = null;
+  };
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript.toLowerCase();
+    console.log("Transcribed text:", transcript);
+
+    // 1. Parse Type (Lent vs Borrowed)
+    let type = "lent"; // default
+    if (transcript.includes("borrowed") || transcript.includes("borrow") || transcript.includes("took") || transcript.includes("owe")) {
+      type = "borrowed";
+    } else if (transcript.includes("lent") || transcript.includes("lend") || transcript.includes("gave")) {
+      type = "lent";
+    }
+
+    // 2. Parse Amount (match first number/decimal)
+    let amount = "";
+    const amountMatch = transcript.match(/\b\d+(?:\.\d+)?\b/);
+    if (amountMatch) {
+      amount = parseFloat(amountMatch[0]);
+    } else {
+      // Basic word mapping fallback
+      const wordMap = { "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "ten": 10, "twenty": 20, "fifty": 50, "hundred": 100 };
+      for (const [word, val] of Object.entries(wordMap)) {
+        if (transcript.includes(word)) {
+          amount = val;
+          break;
+        }
+      }
+    }
+
+    // 3. Parse Name (look after prepositions or verbs)
+    let name = "";
+    if (transcript.includes("borrowed from")) {
+      const parts = transcript.split("borrowed from");
+      if (parts[1]) name = parts[1].trim().split(" ")[0];
+    } else if (transcript.includes("borrow from")) {
+      const parts = transcript.split("borrow from");
+      if (parts[1]) name = parts[1].trim().split(" ")[0];
+    } else if (transcript.includes("lent to")) {
+      const parts = transcript.split("lent to");
+      if (parts[1]) name = parts[1].trim().split(" ")[0];
+    } else if (transcript.includes("gave to")) {
+      const parts = transcript.split("gave to");
+      if (parts[1]) name = parts[1].trim().split(" ")[0];
+    } else {
+      const words = transcript.split(/\s+/);
+      const lentIdx = words.findIndex(w => w === "lent" || w === "lend");
+      if (lentIdx > -1 && words[lentIdx + 1]) {
+        name = words[lentIdx + 1];
+      } else {
+        const borrowIdx = words.findIndex(w => w === "borrowed" || w === "borrow");
+        if (borrowIdx > -1 && words[borrowIdx + 1] && words[borrowIdx + 1] !== "from" && words[borrowIdx + 1] !== "me") {
+          name = words[borrowIdx + 1];
+        }
+      }
+    }
+
+    // Clean name: capitalize, remove non-alphabetic characters
+    if (name) {
+      name = name.replace(/[^a-zA-Z]/g, "");
+      if (name) {
+        name = name.charAt(0).toUpperCase() + name.slice(1);
+      }
+    }
+
+    // 4. Parse Note (words following "for")
+    let note = "";
+    if (transcript.includes(" for ")) {
+      const parts = transcript.split(" for ");
+      if (parts[1]) note = parts[1].trim();
+    }
+
+    // Fill UI inputs
+    if (amount) document.getElementById("debtAmount").value = amount;
+    if (name) document.getElementById("debtName").value = name;
+    if (note) document.getElementById("debtNote").value = note;
+
+    document.getElementById("debtType").value = type;
+    if (type === "lent") {
+      document.getElementById("toggleDebtTypeLent").classList.add("active");
+      document.getElementById("toggleDebtTypeBorrowed").classList.remove("active");
+    } else {
+      document.getElementById("toggleDebtTypeLent").classList.remove("active");
+      document.getElementById("toggleDebtTypeBorrowed").classList.add("active");
+    }
+
+    showBudgetToast("Fields populated from voice input!", "ok");
+  };
+}
+
 function renderBudgetsScreen(){
   const monthExpenses = expenses.filter(e => isThisMonth(e.date) && (e.type || "expense") === "expense");
   const spentByCategory = {};
