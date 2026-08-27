@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Sika — Expense Tracker</title>
-<meta name="app-version" content="1.3.1" />
+<meta name="app-version" content="1.3.3" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -415,12 +415,7 @@
       </div>
 
       <div class="debt-add-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top:0; margin-bottom: 8px;">
-          <div class="field-label" style="margin: 0;">Add New Debt</div>
-          <button id="debtVoiceBtn" class="voice-input-btn" onclick="startDebtVoiceInput()" title="Voice Input" aria-label="Use voice input">
-            <span class="mic-icon">🎙️</span> Voice Fill
-          </button>
-        </div>
+        <div class="field-label" style="margin-top:0">Add New Debt</div>
         <div class="amount-input-wrap">
           <div class="currency">GH₵</div>
           <input type="number" id="debtAmount" placeholder="0.00" min="1" step="any" />

@@ -1,4 +1,4 @@
-const CACHE_NAME = "sika-cache-v53";
+const CACHE_NAME = "sika-cache-v55";
 const ASSETS = [
   "./",
   "./index.html",
@@ -72,11 +72,13 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // If Sika is already open, focus it
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && "focus" in client) {
           return client.focus();
         }
       }
+      // Otherwise, open a new window
       if (clients.openWindow) {
         return clients.openWindow("./");
       }
