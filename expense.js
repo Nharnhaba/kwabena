@@ -2271,6 +2271,9 @@ function fetchAdminBroadcasts() {
         `;
         listEl.appendChild(item);
       });
+    }, err => {
+      console.error("Error fetching admin broadcasts:", err);
+      listEl.innerHTML = `<p style="color:var(--red);font-size:14px;">Error loading broadcasts: ${err.message}</p>`;
     });
 }
 
