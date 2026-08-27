@@ -85,14 +85,38 @@ function showUpdateBanner(reg){
   }
 }
 
-function applyUpdate(){
-  if (pendingUpdateReg && pendingUpdateReg.waiting){
-    pendingUpdateReg.waiting.postMessage("skipWaiting");
+async function autoUpdateApp(reg) {
+  // Prevent auto-refresh if the user is currently typing/editing an expense
+  const isEditing = document.getElementById("screen-add")?.classList.contains("active");
+  if (isEditing) {
+    console.log("Update deferred: User is currently adding/editing an expense.");
+    return;
+  }
+
+  if (reg && reg.waiting) {
+    reg.waiting.postMessage("skipWaiting");
   } else {
+    // Clear cache and service worker to guarantee reload gets new code
+    if ('serviceWorker' in navigator) {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) {
+          await r.unregister();
+        }
+        const keys = await caches.keys();
+        for (const key of keys) {
+          await caches.delete(key);
+        }
+      } catch (err) {
+        console.warn("Failed to unregister Service Worker or clear cache during auto-update:", err);
+      }
+    }
     window.location.reload();
   }
-  document.getElementById("updateBanner").classList.add("hidden");
 }
+
+// Keep applyUpdate as an alias for backwards compatibility (e.g. notifications clicks)
+const applyUpdate = autoUpdateApp;
 
 async function checkForNewCode(){
   try {
@@ -105,7 +129,13 @@ async function checkForNewCode(){
       const localMeta = document.querySelector('meta[name="app-version"]');
       const localVersion = localMeta ? localMeta.getAttribute("content") : null;
       if (localVersion && serverVersion !== localVersion) {
-        showUpdateBanner(null);
+        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+          const reg = await navigator.serviceWorker.ready;
+          reg.update();
+          autoUpdateApp(reg);
+        } else {
+          autoUpdateApp(null);
+        }
       }
     }
   } catch (e) {
@@ -825,7 +855,21 @@ async function setNotificationsEnabled(enabled) {
     }
     localStorage.setItem("sika-notifications-enabled", "true");
     showBudgetToast("System notifications enabled successfully!", "ok");
-    showUpdateBanner(null);
+    
+    // Send a test notification to verify it works
+    if (Notification.permission === "granted") {
+      const title = "Notifications Enabled";
+      const options = {
+        body: "You will now receive system notifications from Sika.",
+        icon: "icon-192.png",
+        tag: "sika-notif-setup"
+      };
+      if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+        navigator.serviceWorker.ready.then(reg => reg.showNotification(title, options));
+      } else {
+        new Notification(title, options);
+      }
+    }
   } else {
     localStorage.setItem("sika-notifications-enabled", "false");
     showBudgetToast("System notifications disabled.", "ok");

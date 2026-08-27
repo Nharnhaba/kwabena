@@ -512,7 +512,11 @@
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
           if (newWorker.state === "installed" && navigator.serviceWorker.controller){
-            showUpdateBanner(reg);
+            if (typeof autoUpdateApp === "function") {
+              autoUpdateApp(reg);
+            } else {
+              reg.waiting.postMessage("skipWaiting");
+            }
           }
         });
       });
