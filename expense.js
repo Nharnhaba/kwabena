@@ -287,21 +287,37 @@ async function saveUsername(){
   });
 }
 
+async function getDocsWithCacheFallback(query) {
+  try {
+    return await query.get();
+  } catch (err) {
+    console.warn("Firestore query failed, attempting cache fallback:", err);
+    try {
+      return await query.get({ source: "cache" });
+    } catch (cacheErr) {
+      console.error("Firestore cache fallback failed:", cacheErr);
+      throw cacheErr;
+    }
+  }
+}
+
 async function loadExpensesForUser(username){
   try {
-    const snapshot = await db.collection("expenses").where("username", "==", username).get();
-    return snapshot.docs.map(doc => doc.data());
+    const query = db.collection("expenses").where("username", "==", username);
+    const snapshot = await getDocsWithCacheFallback(query);
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id ?? doc.id }));
   } catch (err) {
-    console.error("Failed to load expenses:", err);
+    console.error("Failed to load expenses for user:", err);
     return [];
   }
 }
 async function loadExpensesForHousehold(householdId){
   try {
-    const snapshot = await db.collection("expenses").where("householdId", "==", householdId).get();
-    return snapshot.docs.map(doc => doc.data());
+    const query = db.collection("expenses").where("householdId", "==", householdId);
+    const snapshot = await getDocsWithCacheFallback(query);
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.data().id ?? doc.id }));
   } catch (err) {
-    console.error("Failed to load expenses:", err);
+    console.error("Failed to load expenses for household:", err);
     return [];
   }
 }
@@ -328,9 +344,9 @@ async function loadRecurringForUser(username, householdId){
       .map(n => String(n))
   )];
   const byId = new Map();
-  const tryQuery = async (query) => {
+  const tryQuery = async (queryRef) => {
     try {
-      const snapshot = await query;
+      const snapshot = await getDocsWithCacheFallback(queryRef);
       snapshot.docs.forEach(doc => {
         const item = recurringFromDoc(doc);
         byId.set(String(item.id), item);
@@ -340,17 +356,18 @@ async function loadRecurringForUser(username, householdId){
     }
   };
   for (const name of names){
-    await tryQuery(db.collection("recurring").where("username", "==", name).get());
+    await tryQuery(db.collection("recurring").where("username", "==", name));
   }
-  if (householdId) await tryQuery(db.collection("recurring").where("householdId", "==", householdId).get());
+  if (householdId) {
+    await tryQuery(db.collection("recurring").where("householdId", "==", householdId));
+  }
   return Array.from(byId.values());
 }
-
 async function loadDebtsForAccount(username, householdId){
   const byId = new Map();
-  const tryQuery = async (query) => {
+  const tryQuery = async (queryRef) => {
     try {
-      const snapshot = await query;
+      const snapshot = await getDocsWithCacheFallback(queryRef);
       snapshot.docs.forEach(doc => {
         const item = { ...doc.data(), id: doc.data().id ?? doc.id };
         byId.set(String(item.id), item);
@@ -359,9 +376,9 @@ async function loadDebtsForAccount(username, householdId){
       console.error("Failed to load debts:", err);
     }
   };
-  await tryQuery(db.collection("debts").where("username", "==", username).get());
+  await tryQuery(db.collection("debts").where("username", "==", username));
   if (householdId) {
-    await tryQuery(db.collection("debts").where("householdId", "==", householdId).get());
+    await tryQuery(db.collection("debts").where("householdId", "==", householdId));
   }
   return Array.from(byId.values());
 }
