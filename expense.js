@@ -2038,6 +2038,10 @@ function showScreen(name){
     if (name === "budgets") renderBudgetsScreen();
     if (name === "recurring") renderRecurringScreen();
     if (name === "debts") renderDebtsScreen();
+    if (name === "admin") {
+      fetchAdminBroadcasts();
+      fetchAdminUsers();
+    }
   }
 
   if (name === "add" && !editingExpenseId) resetAddForm();
@@ -2085,9 +2089,10 @@ async function enterApp(){
 }
 
 function initAdminPanel() {
-  const panel = document.getElementById("adminBroadcastPanel");
-  if (!panel) return;
-  panel.style.display = isSuperAdmin() ? "block" : "none";
+  const adminBtnWrap = document.getElementById("adminDashboardBtnWrap");
+  if (adminBtnWrap) {
+    adminBtnWrap.style.display = isSuperAdmin() ? "block" : "none";
+  }
 }
 
 async function handleSendBroadcast() {
@@ -2095,29 +2100,202 @@ async function handleSendBroadcast() {
   const title = document.getElementById("broadcastTitle").value.trim();
   const message = document.getElementById("broadcastMessage").value.trim();
   const type = document.getElementById("broadcastType").value;
+  const editId = document.getElementById("editBroadcastId").value;
+
   if (!title || !message) { alert("Fill title and message"); return; }
+  
   const btn = document.getElementById("sendBroadcastBtn");
-  btn.textContent = "Sending..."; btn.disabled = true;
+  btn.textContent = editId ? "Updating..." : "Sending..."; 
+  btn.disabled = true;
+  
   try {
-    await db.collection("notifications").add({
-      title,
-      message,
-      type,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      createdByDocId: SUPER_ADMIN_DOC_ID,
-      createdByName: getCurrentUser()?.name || "Admin"
-    });
+    if (editId) {
+      await db.collection("notifications").doc(editId).update({
+        title,
+        message,
+        type
+      });
+      document.getElementById("broadcastStatus").textContent = "Broadcast updated!";
+    } else {
+      await db.collection("notifications").add({
+        title,
+        message,
+        type,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdByDocId: SUPER_ADMIN_DOC_ID,
+        createdByName: getCurrentUser()?.name || "Admin"
+      });
+      document.getElementById("broadcastStatus").textContent = "Broadcast sent to all users!";
+    }
+    
     const statusEl = document.getElementById("broadcastStatus");
     statusEl.style.display = "block";
-    statusEl.textContent = "Broadcast sent to all users!";
-    document.getElementById("broadcastTitle").value = ""; 
-    document.getElementById("broadcastMessage").value = "";
+    
+    // Reset form
+    cancelEditBroadcast();
+    
     setTimeout(() => { statusEl.style.display = "none"; }, 4000);
   } catch(e) { 
     alert("Error: " + e.message); 
   }
   btn.textContent = "Broadcast to All Users"; btn.disabled = false;
 }
+
+function cancelEditBroadcast() {
+  document.getElementById("editBroadcastId").value = "";
+  document.getElementById("broadcastTitle").value = "";
+  document.getElementById("broadcastMessage").value = "";
+  document.getElementById("broadcastType").value = "info";
+  document.getElementById("sendBroadcastBtn").textContent = "Broadcast to All Users";
+  document.getElementById("cancelBroadcastEditBtn").style.display = "none";
+}
+let adminUsersUnsubscribe = null;
+function fetchAdminUsers() {
+  if (!isSuperAdmin()) return;
+  const listEl = document.getElementById("adminUsersList");
+  if (!listEl) return;
+  
+  if (adminUsersUnsubscribe) adminUsersUnsubscribe();
+  
+  adminUsersUnsubscribe = db.collection("users")
+    .orderBy("displayUsername")
+    .onSnapshot(snap => {
+      listEl.innerHTML = "";
+      if (snap.empty) {
+        listEl.innerHTML = "<p style='color:var(--text-secondary);font-size:14px;'>No users found.</p>";
+        return;
+      }
+      
+      snap.forEach(doc => {
+        const data = doc.data();
+        const isUserSuperAdmin = doc.id === SUPER_ADMIN_DOC_ID || data.username?.toLowerCase() === SUPER_ADMIN_DOC_ID;
+        const isAdmin = isUserSuperAdmin || data.isAdmin === true;
+        
+        const item = document.createElement("div");
+        item.style.cssText = "background:var(--bg-soft); padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;";
+        
+        const infoDiv = document.createElement("div");
+        infoDiv.innerHTML = `
+          <strong style="color:var(--text-primary); font-family:var(--font-display); font-size:15px;">${escapeHtml(data.displayUsername || doc.id)}</strong>
+          <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">
+            ${doc.id} &nbsp; 
+            <span style="padding:2px 6px; border-radius:4px; font-weight:600; font-size:10px; background:${isAdmin ? 'var(--gold-dim)' : 'rgba(255,255,255,0.1)'}; color:${isAdmin ? 'var(--gold)' : 'var(--text-secondary)'};">
+              ${isUserSuperAdmin ? 'SUPER ADMIN' : (isAdmin ? 'ADMIN' : 'USER')}
+            </span>
+          </div>
+        `;
+        
+        const actionDiv = document.createElement("div");
+        if (isUserSuperAdmin) {
+           // Can't demote super admin
+           actionDiv.innerHTML = `<button disabled style="background:var(--bg-soft); color:var(--text-secondary); border:1px solid var(--border); padding:6px 12px; border-radius:var(--radius-sm); font-size:12px; opacity:0.5; cursor:not-allowed;">Primary</button>`;
+        } else {
+           const btn = document.createElement("button");
+           btn.style.cssText = `background:var(--bg-soft); color:var(--text-primary); border:1px solid var(--border); padding:6px 12px; border-radius:var(--radius-sm); font-size:12px; cursor:pointer; font-weight:600;`;
+           btn.textContent = isAdmin ? "Demote" : "Promote";
+           if (isAdmin) {
+             btn.style.borderColor = "var(--red)";
+             btn.style.color = "var(--red)";
+           } else {
+             btn.style.borderColor = "var(--gold)";
+             btn.style.color = "var(--gold)";
+           }
+           btn.onclick = () => toggleUserAdminStatus(doc.id, !isAdmin);
+           actionDiv.appendChild(btn);
+        }
+        
+        item.appendChild(infoDiv);
+        item.appendChild(actionDiv);
+        listEl.appendChild(item);
+      });
+    }, err => {
+      console.error("Error fetching users for admin:", err);
+      listEl.innerHTML = "<p style='color:var(--red);font-size:14px;'>Error loading users.</p>";
+    });
+}
+
+async function toggleUserAdminStatus(userId, makeAdmin) {
+  if (!isSuperAdmin()) return;
+  if (userId === SUPER_ADMIN_DOC_ID || userId.toLowerCase() === SUPER_ADMIN_DOC_ID) {
+    alert("Cannot modify the primary super admin.");
+    return;
+  }
+  
+  const actionText = makeAdmin ? "promote to Admin" : "demote to User";
+  if (!confirm(`Are you sure you want to ${actionText} ${userId}?`)) return;
+  
+  try {
+    await db.collection("users").doc(userId).update({
+      isAdmin: makeAdmin
+    });
+  } catch (err) {
+    console.error("Error toggling admin status:", err);
+    alert("Error updating user: " + err.message);
+  }
+}
+
+let adminBroadcastUnsubscribe = null;
+function fetchAdminBroadcasts() {
+  if (!isSuperAdmin()) return;
+  const listEl = document.getElementById("adminBroadcastsList");
+  if (!listEl) return;
+  
+  if (adminBroadcastUnsubscribe) adminBroadcastUnsubscribe();
+  
+  adminBroadcastUnsubscribe = db.collection("notifications")
+    .orderBy("createdAt", "desc")
+    .limit(20)
+    .onSnapshot(snap => {
+      listEl.innerHTML = "";
+      if (snap.empty) {
+        listEl.innerHTML = "<p style='color:var(--text-secondary);font-size:14px;'>No broadcasts sent yet.</p>";
+        return;
+      }
+      
+      snap.forEach(doc => {
+        const data = doc.data();
+        const dateStr = data.createdAt ? data.createdAt.toDate().toLocaleString() : "Just now";
+        
+        const item = document.createElement("div");
+        item.style.cssText = "background:var(--bg-soft); padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border);";
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+            <strong style="color:var(--text-primary); font-family:var(--font-display);">${escapeHtml(data.title)} <span style="font-size:10px; padding:2px 4px; background:var(--gold-dim); border-radius:4px; margin-left:4px;">${data.type}</span></strong>
+            <div style="display:flex; gap:8px;">
+              <button onclick="editBroadcast('${doc.id}', '${escapeHtml(data.title).replace(/'/g, "\\'")}', '${escapeHtml(data.message).replace(/'/g, "\\'")}', '${data.type}')" style="background:none; border:none; color:var(--gold); cursor:pointer; font-size:16px;" title="Edit">✏️</button>
+              <button onclick="deleteBroadcast('${doc.id}')" style="background:none; border:none; color:var(--red); cursor:pointer; font-size:16px;" title="Delete">🗑️</button>
+            </div>
+          </div>
+          <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">${dateStr}</div>
+          <div style="font-size:14px; color:var(--text-primary); white-space:pre-wrap; font-family:var(--font-body);">${escapeHtml(data.message)}</div>
+        `;
+        listEl.appendChild(item);
+      });
+    });
+}
+
+function editBroadcast(id, title, message, type) {
+  document.getElementById("editBroadcastId").value = id;
+  document.getElementById("broadcastTitle").value = title;
+  document.getElementById("broadcastMessage").value = message;
+  document.getElementById("broadcastType").value = type;
+  
+  document.getElementById("sendBroadcastBtn").textContent = "Update Broadcast";
+  document.getElementById("cancelBroadcastEditBtn").style.display = "block";
+  
+  // Scroll to top of the panel
+  document.getElementById("adminBroadcastPanel").scrollIntoView({ behavior: 'smooth' });
+}
+
+async function deleteBroadcast(id) {
+  if (!confirm("Are you sure you want to delete this broadcast?")) return;
+  try {
+    await db.collection("notifications").doc(id).delete();
+  } catch (e) {
+    alert("Error deleting broadcast: " + e.message);
+  }
+}
+
 
 let notifListener = null;
 let currentNotifications = [];

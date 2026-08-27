@@ -309,22 +309,8 @@
      <button class="reg-btn" id="profileSaveBtn" onclick="saveProfileChanges()">Save changes</button>
       <div class="reg-error" id="profileError"></div>
       <div class="reg-error" id="profileSuccess" style="color:var(--green)"></div>
-
-      <div id="adminBroadcastPanel" style="display:none; background:var(--surface-raised); border:1px solid var(--gold-dim); padding:16px; border-radius:var(--radius-md); margin:16px 0;">
-        <h3 style="color:var(--gold); font-family:var(--font-display); margin-top:0;">📢 Admin Broadcast (Only for Nharnhaba)</h3>
-        <input id="broadcastTitle" placeholder="Title (e.g., New Feature!)" style="width:100%; margin:8px 0; padding:10px; background:var(--bg-soft); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius-sm);" />
-        <textarea id="broadcastMessage" placeholder="Message to all users..." style="width:100%; margin:8px 0; padding:10px; min-height:80px; background:var(--bg-soft); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius-sm); font-family:var(--font-body);"></textarea>
-        <select id="broadcastType" style="width:100%; padding:10px; margin:8px 0; background:var(--bg-soft); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius-sm);">
-          <option value="info">Info</option>
-          <option value="warning">Warning</option>
-          <option value="promo">Promo</option>
-        </select>
-        <button id="sendBroadcastBtn" style="background:var(--gold); color:black; padding:12px; width:100%; border:none; border-radius:var(--radius-sm); font-weight:bold; cursor:pointer; font-family:var(--font-display);">Broadcast to All Users</button>
-        <button id="cancelBroadcastEditBtn" style="display:none; background:var(--bg-soft); color:var(--text-secondary); border:1px solid var(--border); padding:10px; width:100%; margin-top:8px; border-radius:var(--radius-sm); cursor:pointer; font-family:var(--font-body); font-size:12px;">Cancel Edit</button>
-        <p id="broadcastStatus" style="color:var(--green); display:none; margin-top:8px; font-weight:600;"></p>
-        
-        <h4 style="color:var(--text-secondary); margin:20px 0 10px 0; font-family:var(--font-display);">Sent Broadcasts</h4>
-        <div id="adminBroadcastsList" style="display:flex; flex-direction:column; gap:10px; max-height:220px; overflow-y:auto; padding-right:4px;"></div>
+      <div id="adminDashboardBtnWrap" style="display:none; margin:16px 0;">
+        <button class="reg-btn" style="background:var(--gold); color:black;" onclick="showScreen('admin')">Admin Dashboard</button>
       </div>
 
       <div class="danger-zone">
@@ -341,6 +327,36 @@
         <div class="reg-error" id="profileDeleteError"></div>
       </div>
 
+    </section>
+
+    <!-- SCREEN 8 — ADMIN -->
+    <section id="screen-admin" class="screen">
+      <p class="back-link" onclick="showScreen('profile')">‹ Back</p>
+      <h1 class="page-title">Admin Dashboard</h1>
+      <p class="page-sub">Manage broadcasts and platform settings.</p>
+      
+      <div id="adminBroadcastPanel" style="background:var(--surface-raised); border:1px solid var(--gold-dim); padding:16px; border-radius:var(--radius-md); margin:16px 0;">
+        <h3 style="color:var(--gold); font-family:var(--font-display); margin-top:0;">📢 Send/Edit Broadcast</h3>
+        <input type="hidden" id="editBroadcastId" value="" />
+        <input id="broadcastTitle" placeholder="Title (e.g., New Feature!)" style="width:100%; margin:8px 0; padding:10px; background:var(--bg-soft); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius-sm);" />
+        <textarea id="broadcastMessage" placeholder="Message to all users..." style="width:100%; margin:8px 0; padding:10px; min-height:80px; background:var(--bg-soft); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius-sm); font-family:var(--font-body);"></textarea>
+        <select id="broadcastType" style="width:100%; padding:10px; margin:8px 0; background:var(--bg-soft); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius-sm);">
+          <option value="info">Info</option>
+          <option value="warning">Warning</option>
+          <option value="promo">Promo</option>
+        </select>
+        <button id="sendBroadcastBtn" style="background:var(--gold); color:black; padding:12px; width:100%; border:none; border-radius:var(--radius-sm); font-weight:bold; cursor:pointer; font-family:var(--font-display);" onclick="handleSendBroadcast()">Broadcast to All Users</button>
+        <button id="cancelBroadcastEditBtn" style="display:none; background:var(--bg-soft); color:var(--text-secondary); border:1px solid var(--border); padding:10px; width:100%; margin-top:8px; border-radius:var(--radius-sm); cursor:pointer; font-family:var(--font-body); font-size:12px;" onclick="cancelEditBroadcast()">Cancel Edit</button>
+        <p id="broadcastStatus" style="color:var(--green); display:none; margin-top:8px; font-weight:600;"></p>
+        
+        <h4 style="color:var(--text-secondary); margin:20px 0 10px 0; font-family:var(--font-display);">Sent Broadcasts</h4>
+        <div id="adminBroadcastsList" style="display:flex; flex-direction:column; gap:10px; max-height:300px; overflow-y:auto; padding-right:4px;"></div>
+      </div>
+
+      <div id="adminUsersPanel" style="background:var(--surface-raised); border:1px solid var(--border); padding:16px; border-radius:var(--radius-md); margin:16px 0;">
+        <h3 style="color:var(--text-primary); font-family:var(--font-display); margin-top:0;">👥 User Management</h3>
+        <div id="adminUsersList" style="display:flex; flex-direction:column; gap:10px; max-height:400px; overflow-y:auto; padding-right:4px;"></div>
+      </div>
     </section>
 
     <!-- SCREEN 7 — RECURRING TEMPLATES -->
