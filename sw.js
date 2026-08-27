@@ -1,4 +1,4 @@
-const CACHE_NAME = "sika-cache-v45";
+const CACHE_NAME = "sika-cache-v47";
 const ASSETS = [
   "./",
   "./index.html",
@@ -38,25 +38,36 @@ self.addEventListener("fetch", (event) => {
   // Only handle http/https requests
   if (!url.protocol.startsWith("http")) return;
 
-  // Do not intercept Firestore api requests
-  if (url.hostname.includes("firestore.googleapis.com") || url.hostname.includes("googleapis.com")) {
-    return;
-  }
+  // Only intercept requests for our own origin or firebase CDN scripts on www.gstatic.com
+  const isSelfOrigin = url.origin === self.location.origin;
+  const isGstatic = url.hostname === "www.gstatic.com";
+  if (!isSelfOrigin && !isGstatic) return;
 
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Cache successful responses from our own origin or trusted CDNs (like gstatic for firebase compat libs)
-        const isSelfOrigin = url.origin === self.location.origin;
-        const isGstatic = url.hostname === "www.gstatic.com";
-        
-        if (response && response.status === 200 && (isSelfOrigin || isGstatic)) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request))
+    caches.match(event.request).then((cachedResponse) => {
+      // Try fetching from the network first
+      return fetch(event.request)
+        .then((response) => {
+          // If successful, update the cache
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => {
+          // If network fails, serve from cache
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          // If not in cache, return a fallback 503 response instead of undefined
+          return new Response("Network connection unavailable and asset not cached.", {
+            status: 503,
+            statusText: "Service Unavailable",
+            headers: new Headers({ "Content-Type": "text/plain" })
+          });
+        });
+    })
   );
 });
 

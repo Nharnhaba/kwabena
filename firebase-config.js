@@ -10,7 +10,8 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 db.settings({
   experimentalAutoDetectLongPolling: true,
-  useFetchStreams: false
+  useFetchStreams: false,
+  merge: true
 });
 
 // Enable Firestore offline persistence
