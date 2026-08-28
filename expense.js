@@ -8,6 +8,16 @@ function isSuperAdmin() {
   return u.id === SUPER_ADMIN_DOC_ID || u.docId === SUPER_ADMIN_DOC_ID || u.username?.toLowerCase() === SUPER_ADMIN_DOC_ID || u.isAdmin === true;
 }
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const CATEGORIES = [
   { id: "food",      name: "Food",            emoji: "🍛" },
   { id: "transport", name: "Transport/Trotro", emoji: "🚌" },
