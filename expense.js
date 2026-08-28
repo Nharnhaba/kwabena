@@ -2278,16 +2278,17 @@ async function toggleUserAdminStatus(userId, makeAdmin) {
   }
   
   const actionText = makeAdmin ? "promote to Admin" : "demote to User";
-  if (!confirm(`Are you sure you want to ${actionText} ${userId}?`)) return;
   
-  try {
-    await db.collection("users").doc(userId).update({
-      isAdmin: makeAdmin
-    });
-  } catch (err) {
-    console.error("Error toggling admin status:", err);
-    alert("Error updating user: " + err.message);
-  }
+  showConfirm(`Are you sure you want to ${actionText} ${userId}?`, async () => {
+    try {
+      await db.collection("users").doc(userId).update({
+        isAdmin: makeAdmin
+      });
+    } catch (err) {
+      console.error("Error toggling admin status:", err);
+      alert("Error updating user: " + err.message);
+    }
+  });
 }
 
 let adminBroadcastUnsubscribe = null;
