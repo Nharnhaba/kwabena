@@ -763,6 +763,7 @@ function logoutUser(){
 
 let confirmCallback = null;
 
+// STANDING RULE: Never use the browser's native confirm() or alert() for user-facing confirmations anywhere in this app. Always use showConfirm(message, onConfirmCallback) for confirmations, and the existing showBudgetToast(message, type) for status/error messages, so every dialog matches the app's dark theme. Any new confirmation dialog added later must follow this pattern.
 function showConfirm(message, onConfirm){
   document.getElementById("confirmMessage").textContent = message;
   confirmCallback = onConfirm;
@@ -2142,13 +2143,13 @@ function initAdminPanel() {
 }
 
 async function handleSendBroadcast() {
-  if (!isSuperAdmin()) { alert("Only Nharnhaba can send"); return; }
+  if (!isSuperAdmin()) { showBudgetToast("Only Nharnhaba can send", "warn"); return; }
   const title = document.getElementById("broadcastTitle").value.trim();
   const message = document.getElementById("broadcastMessage").value.trim();
   const type = document.getElementById("broadcastType").value;
   const editId = document.getElementById("editBroadcastId").value;
 
-  if (!title || !message) { alert("Fill title and message"); return; }
+  if (!title || !message) { showBudgetToast("Fill title and message", "warn"); return; }
   
   const btn = document.getElementById("sendBroadcastBtn");
   btn.textContent = editId ? "Updating..." : "Sending..."; 
@@ -2273,7 +2274,7 @@ function fetchAdminUsers() {
 async function toggleUserAdminStatus(userId, makeAdmin) {
   if (!isSuperAdmin()) return;
   if (userId === SUPER_ADMIN_DOC_ID || userId.toLowerCase() === SUPER_ADMIN_DOC_ID) {
-    alert("Cannot modify the primary super admin.");
+    showBudgetToast("Cannot modify the primary super admin.", "warn");
     return;
   }
   
@@ -2286,7 +2287,7 @@ async function toggleUserAdminStatus(userId, makeAdmin) {
       });
     } catch (err) {
       console.error("Error toggling admin status:", err);
-      alert("Error updating user: " + err.message);
+      showBudgetToast("Error updating user: " + err.message, "over");
     }
   });
 }
@@ -2352,12 +2353,13 @@ function editBroadcast(id, title, message, type) {
 }
 
 async function deleteBroadcast(id) {
-  if (!confirm("Are you sure you want to delete this broadcast?")) return;
-  try {
-    await db.collection("notifications").doc(id).delete();
-  } catch (e) {
-    alert("Error deleting broadcast: " + e.message);
-  }
+  showConfirm("Are you sure you want to delete this broadcast?", async () => {
+    try {
+      await db.collection("notifications").doc(id).delete();
+    } catch (e) {
+      showBudgetToast("Error deleting broadcast: " + e.message, "over");
+    }
+  });
 }
 
 
