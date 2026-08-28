@@ -408,6 +408,14 @@ async function deleteDebtFromDB(id){
   }
 }
 
+async function updateDebtInDB(debt){
+  try {
+    await db.collection("debts").doc(String(debt.id)).set(debt);
+  } catch (err) {
+    handleWriteError(err, "Failed to update debt");
+  }
+}
+
 async function addExpenseToDB(expense){
   try {
     await db.collection("expenses").doc(String(expense.id)).set(expense);
@@ -1760,6 +1768,7 @@ function renderDebtsScreen(){
         </div>
         <div class="budget-status">
           <span style="color: ${amtColor}; font-weight: 600;">${typeLabel} ${formatMoney(d.amount)}</span>
+          ${d.settledHistory && d.settledHistory.length ? ` <span style="font-size: 11px; padding: 2px 6px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-left: 4px; font-weight: 600;">Partially settled</span>` : ""}
           ${d.note ? ` · ${String(d.note).replace(/</g, "&lt;")}` : ""}
           <span style="float: right; font-size: 11px; opacity: 0.7;">${d.date}</span>
         </div>
@@ -1805,11 +1814,38 @@ async function addNewDebt(){
 }
 
 function settleDebt(id){
-  showConfirm("Mark this debt as settled?", async () => {
-    debts = debts.filter(d => String(d.id) !== String(id));
-    deleteDebtFromDB(id);
+  const debt = debts.find(d => String(d.id) === String(id));
+  if (!debt) return;
+  const remaining = parseFloat(debt.amount || 0);
+
+  const promptCallbackFn = async (val) => {
+    const amt = parseFloat(val);
+    if (isNaN(amt) || amt <= 0 || amt > remaining) {
+      showBudgetToast("Value must be greater than 0 and not exceed remaining amount.", "warn");
+      setTimeout(() => {
+        showPrompt("How much was settled?", remaining, promptCallbackFn);
+      }, 350);
+      return;
+    }
+    
+    if (amt >= remaining) {
+      debts = debts.filter(d => String(d.id) !== String(id));
+      deleteDebtFromDB(id);
+    } else {
+      debt.amount = parseFloat((remaining - amt).toFixed(2));
+      if (!debt.settledHistory) {
+        debt.settledHistory = [];
+      }
+      debt.settledHistory.push({
+        amount: amt,
+        date: toISODate(new Date())
+      });
+      updateDebtInDB(debt);
+    }
     renderDebtsScreen();
-  });
+  };
+
+  showPrompt("How much was settled?", remaining, promptCallbackFn);
 }
 
 function renderBudgetsScreen(){
@@ -2158,7 +2194,6 @@ function fetchAdminUsers() {
   if (adminUsersUnsubscribe) adminUsersUnsubscribe();
   
   adminUsersUnsubscribe = db.collection("users")
-    .orderBy("displayUsername")
     .onSnapshot(snap => {
       listEl.innerHTML = "";
       if (snap.empty) {
@@ -2166,7 +2201,18 @@ function fetchAdminUsers() {
         return;
       }
       
+      const docs = [];
       snap.forEach(doc => {
+        docs.push(doc);
+      });
+      
+      docs.sort((a, b) => {
+        const nameA = a.data().displayUsername || a.id;
+        const nameB = b.data().displayUsername || b.id;
+        return nameA.localeCompare(nameB);
+      });
+      
+      docs.forEach(doc => {
         const data = doc.data();
         const isUserSuperAdmin = doc.id === SUPER_ADMIN_DOC_ID || data.username?.toLowerCase() === SUPER_ADMIN_DOC_ID;
         const isAdmin = isUserSuperAdmin || data.isAdmin === true;
@@ -2262,13 +2308,17 @@ function fetchAdminBroadcasts() {
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
             <strong style="color:var(--text-primary); font-family:var(--font-display);">${escapeHtml(data.title)} <span style="font-size:10px; padding:2px 4px; background:var(--gold-dim); border-radius:4px; margin-left:4px;">${data.type}</span></strong>
             <div style="display:flex; gap:8px;">
-              <button onclick="editBroadcast('${doc.id}', '${escapeHtml(data.title).replace(/'/g, "\\'")}', '${escapeHtml(data.message).replace(/'/g, "\\'")}', '${data.type}')" style="background:none; border:none; color:var(--gold); cursor:pointer; font-size:16px;" title="Edit">✏️</button>
+              <button class="edit-broadcast-btn" style="background:none; border:none; color:var(--gold); cursor:pointer; font-size:16px;" title="Edit">✏️</button>
               <button onclick="deleteBroadcast('${doc.id}')" style="background:none; border:none; color:var(--red); cursor:pointer; font-size:16px;" title="Delete">🗑️</button>
             </div>
           </div>
           <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">${dateStr}</div>
           <div style="font-size:14px; color:var(--text-primary); white-space:pre-wrap; font-family:var(--font-body);">${escapeHtml(data.message)}</div>
         `;
+        const editBtn = item.querySelector(".edit-broadcast-btn");
+        editBtn.addEventListener("click", () => {
+          editBroadcast(doc.id, data.title || "", data.message || "", data.type || "info");
+        });
         listEl.appendChild(item);
       });
     }, err => {
