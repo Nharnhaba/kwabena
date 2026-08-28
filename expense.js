@@ -38,6 +38,32 @@ const INCOME_CATEGORIES = [
 let expenses = [];
 let currentUser = null;
 let selectedCategoryId = null;
+
+let currentUserListener = null;
+function startCurrentUserListener(username) {
+  if (currentUserListener) currentUserListener();
+  currentUserListener = db.collection("users").doc(username).onSnapshot(doc => {
+    if (doc.exists) {
+      const data = doc.data();
+      if (currentUser) {
+        currentUser.isAdmin = data.isAdmin === true || username === 'nharnhaba';
+        const cached = localStorage.getItem("sika_currentUser");
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            parsed.isAdmin = currentUser.isAdmin;
+            localStorage.setItem("sika_currentUser", JSON.stringify(parsed));
+          } catch (e) {
+            console.warn("Failed to update cached sika_currentUser:", e);
+          }
+        }
+        initAdminPanel();
+      }
+    }
+  }, err => {
+    console.error("Error listening to user changes:", err);
+  });
+}
 let selectedMethod = "momo";
 let selectedType = "expense";
 let budgets = {};
@@ -669,6 +695,7 @@ async function loginUser(){
     localStorage.setItem(SESSION_KEY, username);
     const userToSave = { id: username, docId: username, username: currentUser.username, displayUsername: currentUser.displayUsername, name: currentUser.name, isAdmin: currentUser.isAdmin === true || username === 'nharnhaba', usernameLower: username.toLowerCase() };
     localStorage.setItem("sika_currentUser", JSON.stringify(userToSave));
+    startCurrentUserListener(username);
     enterApp();
   } catch (err) {
     console.error(err); errorEl.textContent = err.message || "Incorrect username or password.";
@@ -731,6 +758,7 @@ async function registerUser(){
     localStorage.setItem(SESSION_KEY, username);
     const userToSave = { id: username, docId: username, username, displayUsername, name, isAdmin: username === 'nharnhaba', usernameLower: username.toLowerCase() };
     localStorage.setItem("sika_currentUser", JSON.stringify(userToSave));
+    startCurrentUserListener(username);
     enterApp();
   } catch (err) {
     console.error(err); errorEl.textContent = err.message || "Couldn't create your account. Try again.";
@@ -750,6 +778,10 @@ function logoutUser(){
   if (typeof notifListener === "function") {
     notifListener();
     notifListener = null;
+  }
+  if (typeof currentUserListener === "function") {
+    currentUserListener();
+    currentUserListener = null;
   }
   const bellWrap = document.getElementById("notificationBellWrap");
   if (bellWrap) bellWrap.style.display = "none";
@@ -2546,6 +2578,7 @@ async function init(){
       if (localUserData) {
         currentUser = JSON.parse(localUserData);
       }
+      startCurrentUserListener(savedUsername);
 
       // 2. Attempt to refresh user doc from database in the background
       try {
