@@ -2317,6 +2317,16 @@ async function toggleUserAdminStatus(userId, makeAdmin) {
       await db.collection("users").doc(userId).update({
         isAdmin: makeAdmin
       });
+      
+      await db.collection("notifications").add({
+        targetUserId: userId,
+        title: makeAdmin ? "Admin Promotion" : "Admin Demotion",
+        message: makeAdmin ? "You've been promoted to Admin" : "Your admin access has been removed",
+        type: makeAdmin ? "info" : "warning",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdByDocId: SUPER_ADMIN_DOC_ID,
+        createdByName: getCurrentUser()?.name || "Admin"
+      });
     } catch (err) {
       console.error("Error toggling admin status:", err);
       showBudgetToast("Error updating user: " + err.message, "over");
@@ -2407,6 +2417,7 @@ function initNotificationsForAllUsers() {
     .limit(20)
     .onSnapshot((snap) => {
       let notifs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      notifs = notifs.filter(n => !n.targetUserId || n.targetUserId === currentUser?.username || n.targetUserId === currentUser?.id);
       
       // Auto‑remove notifications that were viewed >24h ago
       const now = Date.now();
